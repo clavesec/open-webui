@@ -58,6 +58,9 @@ from ssl import CERT_NONE, CERT_REQUIRED, PROTOCOL_TLS
 from ldap3 import Server, Connection, NONE, Tls
 from ldap3.utils.conv import escape_filter_chars
 
+# support SQLAlchemy style event listeners
+from open_webui.services.encryption_service import encryption_service
+
 router = APIRouter()
 
 log = logging.getLogger(__name__)
@@ -602,6 +605,9 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
         )
 
         if user:
+            # This creates and stores the user's first (mock) EDEK for SQLAlchemy event listener support
+            encryption_service.register_user_and_create_dek(user.id, form_data.password)
+
             expires_delta = parse_duration(request.app.state.config.JWT_EXPIRES_IN)
             expires_at = None
             if expires_delta:
@@ -743,6 +749,9 @@ async def add_user(form_data: AddUserForm, user=Depends(get_admin_user)):
         )
 
         if user:
+            # This ensures users created by an admin also get an EDEK for SQLAlchemy event listener support
+            encryption_service.register_user_and_create_dek(user.id, form_data.password)
+
             token = create_token(data={"id": user.id})
             return {
                 "token": token,

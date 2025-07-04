@@ -100,7 +100,7 @@ class TestLocalStorageProvider:
 @mock_aws
 class TestS3StorageProvider:
 
-    def __init__(self):
+    def setup_method(self):
         self.Storage = provider.S3StorageProvider()
         self.Storage.bucket_name = "my-bucket"
         self.s3_client = boto3.resource("s3", region_name="us-east-1")
@@ -108,7 +108,6 @@ class TestS3StorageProvider:
         self.filename = "test.txt"
         self.filename_extra = "test_exyta.txt"
         self.file_bytesio_empty = io.BytesIO()
-        super().__init__()
 
     def test_upload_file(self, monkeypatch, tmp_path):
         upload_dir = mock_upload_dir(monkeypatch, tmp_path)
@@ -200,8 +199,6 @@ class TestS3StorageProvider:
 
 
 class TestGCSStorageProvider:
-    Storage = provider.GCSStorageProvider()
-    Storage.bucket_name = "my-bucket"
     file_content = b"test content"
     filename = "test.txt"
     filename_extra = "test_exyta.txt"
@@ -215,6 +212,9 @@ class TestGCSStorageProvider:
         server.start()
         os.environ["STORAGE_EMULATOR_HOST"] = f"http://{host}:{port}"
 
+        self.Storage = provider.GCSStorageProvider()
+        self.Storage.bucket_name = "my-bucket"
+
         gcs_client = storage.Client()
         bucket = gcs_client.bucket(self.Storage.bucket_name)
         bucket.create()
@@ -222,6 +222,7 @@ class TestGCSStorageProvider:
         yield
         bucket.delete(force=True)
         server.stop()
+        del os.environ["STORAGE_EMULATOR_HOST"]
 
     def test_upload_file(self, monkeypatch, tmp_path, setup):
         upload_dir = mock_upload_dir(monkeypatch, tmp_path)
@@ -292,9 +293,6 @@ class TestGCSStorageProvider:
 
 
 class TestAzureStorageProvider:
-    def __init__(self):
-        super().__init__()
-
     @pytest.fixture(scope="class")
     def setup_storage(self, monkeypatch):
         # Create mock Blob Service Client and related clients

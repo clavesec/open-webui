@@ -163,6 +163,7 @@ class ChatTable:
             with get_db() as db:
                 chat_item = db.get(Chat, id)
                 chat_item.chat = chat
+                log.info(f"*** update_chat_by_id, about to db.commit chat: {chat}")
                 chat_item.title = chat["title"] if "title" in chat else "New Chat"
                 chat_item.updated_at = int(time.time())
                 db.commit()

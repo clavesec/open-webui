@@ -20,7 +20,11 @@ from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import Request, HTTPException
 from starlette.responses import Response, StreamingResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
 
+from open_webui.services.encryption_service import dek_context, encryption_service
+from open_webui.utils.auth import get_current_user # Assuming this function exists
 
 from open_webui.models.chats import Chats
 from open_webui.models.users import Users
@@ -2468,3 +2472,41 @@ async def process_chat_response(
             headers=dict(response.headers),
             background=response.background,
         )
+
+# This supports the SQLAlchemy Event Listeners middleware for handling encryption keys in a web application.
+class DEKMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        dek = None
+        
+        # We only care about the login route for this POC.
+        if request.url.path == "/api/v1/auths/login" and request.method == "POST":
+            try:
+                # We need to read the request body without consuming it, so the endpoint can still use it.
+                body_bytes = await request.body()
+                body_json = json.loads(body_bytes)
+                
+                email = body_json.get("email")
+                password = body_json.get("password")
+                
+                user = Users.get_user_by_email(email)
+                
+                if user and password:
+                    dek = encryption_service.get_dek_for_session(user.id, password)
+                    if dek:
+                        log.info(f"DEK unlocked for user {user.id} in this request.")
+                    else:
+                        log.warning(f"Failed to unlock DEK for user {user.id}. Incorrect password?")
+            except Exception as e:
+                # This can happen if the request body isn't JSON, which is fine for other routes.
+                log.error(f"Error processing login in DEKMiddleware: {e}")
+
+        # Set the DEK (or None) in the context for this request's lifetime.
+        token = dek_context.set(dek)
+        
+        response = await call_next(request)
+        
+        # Clean up the context variable after the request is complete.
+        dek_context.reset(token)
+        
+        return response
+    

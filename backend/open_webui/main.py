@@ -37,7 +37,9 @@ from fastapi import (
     BackgroundTasks,
 )
 
+# Support SQLAlchemy style event listeners
 from fastapi.openapi.docs import get_swagger_ui_html
+from open_webui.utils.middleware import DEKMiddleware
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
@@ -50,6 +52,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import Response, StreamingResponse
 
+from open_webui.models.encryption_events import register_encryption_listeners
 
 from open_webui.utils import logger
 from open_webui.utils.audit import AuditLevel, AuditLoggingMiddleware
@@ -533,6 +536,9 @@ async def lifespan(app: FastAPI):
 
     asyncio.create_task(periodic_usage_pool_cleanup())
 
+    # Activate the encryption hooks for SQLAlchemy Event Listeners
+    register_encryption_listeners()
+
     yield
 
     if hasattr(app.state, "redis_task_command_listener"):
@@ -546,6 +552,9 @@ app = FastAPI(
     redoc_url=None,
     lifespan=lifespan,
 )
+
+# Add the DEK middleware to support SQLAlchemy style event listeners
+app.add_middleware(DEKMiddleware)
 
 oauth_manager = OAuthManager(app)
 
@@ -1307,8 +1316,18 @@ async def chat_completion(
     try:
         if not model_item.get("direct", False):
             model_id = form_data.get("model", None)
-            if model_id not in request.app.state.MODELS:
-                raise Exception("Model not found")
+#            if model_id not in request.app.state.MODELS:
+#                raise Exception("Model not found")
+            
+            # Add a check to ensure the model was actually found.
+            if not model_info:
+                # If no model is found, stop execution and return a clear error.
+                # This prevents the ValidationError from ever happening.
+                log.error(f"Chat completion failed: Model '{model_id}' not found in database.")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Model '{model_id}' not found. Please select a valid model.",
+                )
 
             model = request.app.state.MODELS[model_id]
             model_info = Models.get_model_by_id(model_id)
