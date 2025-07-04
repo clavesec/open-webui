@@ -100,30 +100,44 @@ def _process_chat_messages(chat_obj: Chat, mode: str):
     Helper function to traverse and 'encrypt'/'decrypt' message content.
     FOR TESTING: It now only runs for a specific hardcoded user ID.
     """
-    
-    # We are bypassing the context and middleware for this test.
-    # We only run the logic if the chat belongs to our test user.
-#    if chat_obj.user_id != TEST_USER_ID:
-#        return
+    if not isinstance(chat_obj.chat, dict):
+        log.warning(f"Chat object for ID {chat_obj.id} is not a dict")
+        return
 
-    if not (chat_obj.chat and "messages" in chat_obj.chat):
+    if not chat_obj.chat:
         return
 
     modified = False
-    for message in chat_obj.chat["messages"]:
+
+    # Process list-style chat["messages"]
+    messages = chat_obj.chat.get("messages", [])
+    for message in messages:
         if "content" in message and message["content"]:
             content = message["content"]
-            
             if mode == "encrypt" and isinstance(content, str):
-                log.info(f"_process_chat_messages BEFORE ENCRYPT event: {content[:30]}...")
+                log.info(f"_process_chat_messages (list) BEFORE ENCRYPT: {content[:30]}...")
                 message["content"] = encryption_service.encrypt_content(content, TEST_DEK)
-                log.info(f"_process_chat_messages AFTER ENCRYPT event: {content[:30]}...")
+                log.info(f"_process_chat_messages (list) AFTER ENCRYPT: {message['content'].get('ciphertext','')[:30]}...")
+                modified = True
+            elif mode == "decrypt" and isinstance(content, dict) and content.get("is_encrypted"):
+                log.info(f"_process_chat_messages (list) BEFORE DECRYPT: {content.get('ciphertext','')[:40]}...")
+                message["content"] = encryption_service.decrypt_content(content, TEST_DEK)
                 modified = True
 
+    # Process dict-style chat["history"]["messages"]
+    history_messages = chat_obj.chat.get("history", {}).get("messages", {})
+    for msg_id, message in history_messages.items():
+        if "content" in message and message["content"]:
+            content = message["content"]
+            if mode == "encrypt" and isinstance(content, str):
+                log.info(f"_process_chat_messages (dict) BEFORE ENCRYPT: {content[:30]}...")
+                message["content"] = encryption_service.encrypt_content(content, TEST_DEK)
+                log.info(f"_process_chat_messages (dict) AFTER ENCRYPT: {message['content'].get('ciphertext','')[:30]}...")
+                modified = True
             elif mode == "decrypt" and isinstance(content, dict) and content.get("is_encrypted"):
-                # This part is now enabled to test the full loop.
-                log.info(f"_process_chat_messages BEFORE DECRYPT event: {content.get('ciphertext','')[:40]}...")
-                # message["content"] = encryption_service.decrypt_content(content, TEST_DEK)
+                log.info(f"_process_chat_messages (dict) BEFORE DECRYPT: {content.get('ciphertext','')[:40]}...")
+                message["content"] = encryption_service.decrypt_content(content, TEST_DEK)
+                modified = True
 
     if modified:
         flag_modified(chat_obj, "chat")
@@ -132,7 +146,11 @@ def encrypt_on_save(mapper, connection, target: Chat):
     """Listen for 'before_insert' and 'before_update' events."""
     log.debug(f"ENCRYPT_ON_SAVE event triggered for Chat ID: {target.id}")
     _process_chat_messages(target, mode="encrypt")
-
+    # DEBUGGING: Check structure of chat field
+    assert isinstance(target.chat, dict), "Expected chat to be a dictionary"
+    history = target.chat.get("history", {})
+    assert isinstance(history, dict), "Expected chat['history'] to be a dict"
+    assert "messages" in history, "Missing 'messages' key in chat['history']"
 
 def decrypt_on_load(target: Chat, context):
     """Listen for the 'load' event."""

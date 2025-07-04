@@ -106,6 +106,7 @@ RUN mkdir -p $HOME/.cache/chroma
 RUN echo -n 00000000-0000-0000-0000-000000000000 > $HOME/.cache/chroma/telemetry_user_id
 
 # Make sure the user has access to the app and root directory
+RUN mkdir -p /app/backend/data/
 RUN chown -R $UID:$GID /app $HOME
 
 RUN if [ "$USE_OLLAMA" = "true" ]; then \
@@ -133,9 +134,10 @@ RUN if [ "$USE_OLLAMA" = "true" ]; then \
     fi
 
 # install python dependencies
+RUN mkdir -p /app/backend/data/
 COPY --chown=$UID:$GID ./backend/requirements.txt ./requirements.txt
 
-RUN pip3 install --no-cache-dir uv && \
+RUN pip3 install --no-cache-dir "uv==0.7.19" && \
     if [ "$USE_CUDA" = "true" ]; then \
     # If you use CUDA the whisper and embedding model will be downloaded on first use
     pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/$USE_CUDA_DOCKER_VER --no-cache-dir && \

@@ -1316,10 +1316,8 @@ async def chat_completion(
     try:
         if not model_item.get("direct", False):
             model_id = form_data.get("model", None)
-#            if model_id not in request.app.state.MODELS:
-#                raise Exception("Model not found")
-            
-            # Add a check to ensure the model was actually found.
+            model_info = Models.get_model_by_id(model_id)
+
             if not model_info:
                 # If no model is found, stop execution and return a clear error.
                 # This prevents the ValidationError from ever happening.
@@ -1330,7 +1328,6 @@ async def chat_completion(
                 )
 
             model = request.app.state.MODELS[model_id]
-            model_info = Models.get_model_by_id(model_id)
 
             # Check if user has access to the model
             if not BYPASS_MODEL_ACCESS_CONTROL and user.role == "user":

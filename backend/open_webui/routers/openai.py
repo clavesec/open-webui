@@ -4,6 +4,8 @@ import json
 import logging
 from pathlib import Path
 from typing import Literal, Optional, overload
+from pydantic import ValidationError
+import logging
 
 import aiohttp
 from aiocache import cached
@@ -706,7 +708,13 @@ async def generate_chat_completion(
     metadata = payload.pop("metadata", None)
 
     model_id = form_data.get("model")
-    model_info = Models.get_model_by_id(model_id)
+    logger = logging.getLogger(__name__)
+
+    try:
+        model_info = Models.get_model_by_id(model_id)
+    except ValidationError as e:
+        logger.warning(f"Validation error in get_model_by_id: {e}")
+        model_info = None  # or a dummy fallback
 
     # Check model info and override the payload
     if model_info:

@@ -116,7 +116,8 @@ debugpy>=1.6.0,<2.0.0 # For VSCode remote debugging
 googleapis-common-protos==1.63.2
 google-cloud-storage==2.19.0
 
-gcp-storage-emulator==0.1.0
+# Needed this for pytests, but it breaks the docker build
+#gcp-storage-emulator==0.1.0
 azure-identity==1.21.0
 azure-storage-blob==12.24.1
 
@@ -146,3 +147,4 @@ opentelemetry-instrumentation-aiohttp-client==0.53b1
 ## Support encryption shim
 cryptography
 
+tiktoken
