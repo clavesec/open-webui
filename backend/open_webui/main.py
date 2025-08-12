@@ -102,6 +102,7 @@ from open_webui.routers.retrieval import (
 
 print("🔍 MAIN.PY DEBUG: About to import db module...")
 from open_webui.internal.db import Session, engine
+print("🔍 MAIN.PY DEBUG: Successfully imported db module")
 
 print("🔍 MAIN.PY DEBUG: Successfully imported db module")
 
