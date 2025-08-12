@@ -184,6 +184,9 @@ RUN chmod 600 /root/.postgresql/postgresql.crt
 # Debug: Verify certificate file exists and is readable
 # RUN echo "🔍 Certificate debug info:" && ls -la /app/.postgresql/ && ls -la /app/.postgresql/ && head -3 /app/.postgresql/root.crt
 
+# Fix static file permissions to prevent permission denied errors
+RUN chown -R $UID:$GID /app/backend/open_webui/static/ || echo "Static directory not found"
+
 EXPOSE 8080
 
 HEALTHCHECK CMD curl --silent --fail http://localhost:${PORT:-8080}/health | jq -ne 'input.status == true' || exit 1
