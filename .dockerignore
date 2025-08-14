@@ -21,3 +21,4 @@ backend/data/*
 .git
 cdk/
 *.md
+!CHANGELOG.md
