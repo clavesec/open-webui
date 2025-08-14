@@ -18,3 +18,8 @@ uploads
 **/*.db
 _test
 backend/data/*
+.git
+*.ts
+cdk/
+README.md
+*.md
