@@ -216,4 +216,3 @@ ENV DOCKER=true
 # CMD [ "bash", "start.sh"]
 # The original command to start the server now becomes the CMD
 CMD ["tini", "-s", "--", "bash", "start.sh"]
-
