@@ -115,17 +115,12 @@ async def periodic_usage_pool_cleanup():
         iteration = 0
         while True:
             iteration += 1
-            log.info(f"🧹 CLEANUP: Starting cleanup iteration {iteration}")
-            
-            log.info(f"🧹 CLEANUP: Attempting to renew lock...")
             if not renew_func():
                 log.error(f"🧹 CLEANUP: ❌ Unable to renew cleanup lock. Exiting usage pool cleanup.")
                 raise Exception("Unable to renew usage pool cleanup lock.")
-            log.info(f"🧹 CLEANUP: ✅ Lock renewed successfully")
 
             now = int(time.time())
             send_usage = False
-            log.info(f"🧹 CLEANUP: Processing {len(USAGE_POOL)} model pools...")
             for model_id, connections in list(USAGE_POOL.items()):
                 # Creating a list of sids to remove if they have timed out
                 expired_sids = [
