@@ -46,5 +46,5 @@
 
 # Misc
 *.env text eol=lf
-*.lock text eol=lfDockerfile merge=ours
-backend/docker-entrypoint.sh merge=ours
+*.lock text eol=lf
+
