@@ -116,7 +116,9 @@ async def periodic_usage_pool_cleanup():
         while True:
             iteration += 1
             if not renew_func():
-                log.error(f"🧹 CLEANUP: ❌ Unable to renew cleanup lock. Exiting usage pool cleanup.")
+                log.error(
+                    f"🧹 CLEANUP: ❌ Unable to renew cleanup lock. Exiting usage pool cleanup."
+                )
                 raise Exception("Unable to renew usage pool cleanup lock.")
 
             now = int(time.time())
