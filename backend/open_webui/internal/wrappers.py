@@ -100,16 +100,16 @@ def _augment_postgres_url_with_iam_and_ssl(db_url: str) -> str:
 def register_connection(db_url):
     print(f"🔌 DB_CONNECT: Starting register_connection with URL: {db_url[:50]}...")
     log.info(f"🔍 DEBUG: Original DB URL: {db_url[:50]}...")
-    
+
     print("🔌 DB_CONNECT: About to augment URL with IAM/SSL...")
     augmented_url = _augment_postgres_url_with_iam_and_ssl(db_url)
     print(f"🔌 DB_CONNECT: URL augmentation complete: {augmented_url[:50]}...")
     log.info(f"🔍 DEBUG: Augmented DB URL: {augmented_url[:50]}...")
-    
+
     print("🔌 DB_CONNECT: About to call connect()...")
     db = connect(augmented_url, unquote_user=True, unquote_password=True)
     print("🔌 DB_CONNECT: ✅ connect() completed successfully")
-    
+
     if isinstance(db, PostgresqlDatabase):
         print("🔌 DB_CONNECT: Setting up PostgreSQL database...")
         # Enable autoconnect for SQLite databases, managed by Peewee

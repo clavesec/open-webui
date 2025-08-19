@@ -108,7 +108,9 @@ def handle_peewee_migration(DATABASE_URL):
         log.info("🗄️ DB_MIGRATION: ✅ Database connection closed")
 
     except Exception as e:
-        log.error(f"🗄️ DB_MIGRATION: ❌ Failed to initialize the database connection: {e}")
+        log.error(
+            f"🗄️ DB_MIGRATION: ❌ Failed to initialize the database connection: {e}"
+        )
         log.exception("🗄️ DB_MIGRATION: Full migration error traceback:")
         raise
     finally:

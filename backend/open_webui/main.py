@@ -9,6 +9,7 @@ import shutil
 import sys
 import time
 import random
+
 print("🚨 MAIN_IMPORT: Basic imports completed")
 from uuid import uuid4
 
@@ -57,6 +58,7 @@ from starlette.responses import Response, StreamingResponse
 from open_webui.utils import logger
 from open_webui.utils.audit import AuditLevel, AuditLoggingMiddleware
 from open_webui.utils.logger import start_logger
+
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 log = logging.getLogger(__name__)
 log.info("🚀 MAIN: About to import from socket.main...")
@@ -66,6 +68,7 @@ from open_webui.socket.main import (
     get_models_in_use,
     get_active_user_ids,
 )
+
 log.info("🚀 MAIN: ✅ Successfully imported from socket.main")
 from open_webui.routers import (
     audio,
@@ -105,14 +108,20 @@ from open_webui.internal.db import Session, engine
 
 print("🔍 MAIN.PY DEBUG: Successfully imported db module")
 
+print("🔍 MAIN.PY DEBUG: Successfully imported db module")
+
 print("🚨 MAIN_IMPORT: About to import models...")
 from open_webui.models.functions import Functions
+
 print("🚨 MAIN_IMPORT: ✅ Functions imported")
 from open_webui.models.models import Models
+
 print("🚨 MAIN_IMPORT: ✅ Models imported")
 from open_webui.models.users import UserModel, Users
+
 print("🚨 MAIN_IMPORT: ✅ Users imported")
 from open_webui.models.chats import Chats
+
 print("🚨 MAIN_IMPORT: ✅ Chats imported")
 
 print("🚨 MAIN_IMPORT: About to import config...")
@@ -517,10 +526,10 @@ https://github.com/open-webui/open-webui
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     log.info("🚀 LIFESPAN: Starting FastAPI lifespan initialization...")
-    
+
     log.info("🚀 LIFESPAN: Setting instance ID...")
     app.state.instance_id = INSTANCE_ID
-    
+
     log.info("🚀 LIFESPAN: Starting logger...")
     start_logger()
 
@@ -541,15 +550,23 @@ async def lifespan(app: FastAPI):
     # This should be blocking (sync) so functions are not deactivated on first /get_models calls
     # when the first user lands on the / route.
     log.info("🚀 LIFESPAN: Checking function dependency installation...")
-    enable_function_dependency_install = os.getenv("ENABLE_FUNCTION_DEPENDENCY_INSTALL", "true").lower() == "true"
+    enable_function_dependency_install = (
+        os.getenv("ENABLE_FUNCTION_DEPENDENCY_INSTALL", "true").lower() == "true"
+    )
     if enable_function_dependency_install:
-        log.info("🚀 LIFESPAN: Installing external dependencies of functions and tools...")
+        log.info(
+            "🚀 LIFESPAN: Installing external dependencies of functions and tools..."
+        )
         install_tool_and_function_dependencies()
         log.info("🚀 LIFESPAN: ✅ Function dependencies installed successfully")
     else:
-        log.info("🚀 LIFESPAN: Skipping function dependency installation (ENABLE_FUNCTION_DEPENDENCY_INSTALL=false)")
+        log.info(
+            "🚀 LIFESPAN: Skipping function dependency installation (ENABLE_FUNCTION_DEPENDENCY_INSTALL=false)"
+        )
 
-    log.info(f"🚀 LIFESPAN: Setting up Redis connection... REDIS_URL='{REDIS_URL[:50] if REDIS_URL else 'None'}...'")
+    log.info(
+        f"🚀 LIFESPAN: Setting up Redis connection... REDIS_URL='{REDIS_URL[:50] if REDIS_URL else 'None'}...'"
+    )
     app.state.redis = get_redis_connection(
         redis_url=REDIS_URL,
         redis_sentinels=get_sentinels_from_env(
@@ -557,7 +574,9 @@ async def lifespan(app: FastAPI):
         ),
         async_mode=True,
     )
-    log.info(f"🚀 LIFESPAN: ✅ Redis connection setup complete. Redis available: {app.state.redis is not None}")
+    log.info(
+        f"🚀 LIFESPAN: ✅ Redis connection setup complete. Redis available: {app.state.redis is not None}"
+    )
 
     if app.state.redis is not None:
         log.info("🚀 LIFESPAN: Creating Redis task command listener...")
@@ -581,7 +600,9 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(periodic_usage_pool_cleanup())
     log.info("🚀 LIFESPAN: ✅ Periodic cleanup task created")
 
-    log.info("🚀 LIFESPAN: ✅ ALL INITIALIZATION COMPLETE - FastAPI is ready to serve requests!")
+    log.info(
+        "🚀 LIFESPAN: ✅ ALL INITIALIZATION COMPLETE - FastAPI is ready to serve requests!"
+    )
 
     yield
 

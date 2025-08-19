@@ -176,13 +176,13 @@ COPY --chown=$UID:$GID --from=build /app/package.json /app/package.json
 # copy backend files
 COPY --chown=$UID:$GID ./backend .
 
-# Copy AWS RDS certificate bundle for SSL connections (downloaded by CI/CD)  
+# Copy AWS RDS certificate bundle for SSL connections (downloaded by CI/CD)
 # This enables certificate validation for Aurora PostgreSQL connections
-RUN mkdir -p /app/.postgresql
-COPY aws-rds-ca-cert.pem /app/.postgresql/root.crt
-RUN chmod 644 /app/.postgresql/root.crt
+RUN mkdir -p /root/.postgresql
+COPY --chown=$UID:$GID aws-rds-ca-cert.pem /root/.postgresql/postgresql.crt
+RUN chmod 600 /root/.postgresql/postgresql.crt
 # Debug: Verify certificate file exists and is readable
-RUN echo "🔍 Certificate debug info:" && ls -la /app/.postgresql/ && ls -la /app/.postgresql/ && head -3 /app/.postgresql/root.crt
+# RUN echo "🔍 Certificate debug info:" && ls -la /app/.postgresql/ && ls -la /app/.postgresql/ && head -3 /app/.postgresql/root.crt
 
 # Fix static file permissions to prevent permission denied errors
 RUN chown -R $UID:$GID /app/backend/open_webui/static/ || echo "Static directory not found"
@@ -216,4 +216,3 @@ ENV DOCKER=true
 # CMD [ "bash", "start.sh"]
 # The original command to start the server now becomes the CMD
 CMD ["tini", "-s", "--", "bash", "start.sh"]
-
