@@ -25,6 +25,14 @@ else
     echo "❌ Certificate NOT found in either location"
 fi
 
+# Start SSM Agent for ECS Exec if enabled
+if [ "$ENABLE_ECS_EXEC" = "true" ]; then
+    echo "INFO: Starting SSM Agent for ECS Exec support..."
+    # Start SSM Agent in the background
+    /usr/bin/amazon-ssm-agent &
+    echo "INFO: SSM Agent started successfully."
+fi
+
 echo "INFO: Checking database authentication method..."
 
 # Define the application entrypoint module path
