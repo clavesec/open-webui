@@ -3,6 +3,7 @@
 # use build args in the docker build command with --build-arg="BUILDARG=true"
 ARG USE_CUDA=false
 ARG USE_OLLAMA=false
+ARG ENABLE_ECS_EXEC=false
 # Tested with cu117 for CUDA 11 and cu121 for CUDA 12 (default)
 ARG USE_CUDA_VER=cu128
 # any sentence transformer model; models to use can be found at https://huggingface.co/models?library=sentence-transformers
@@ -45,6 +46,7 @@ ARG USE_OLLAMA
 ARG USE_CUDA_VER
 ARG USE_EMBEDDING_MODEL
 ARG USE_RERANKING_MODEL
+ARG ENABLE_ECS_EXEC
 ARG UID
 ARG GID
 
@@ -140,6 +142,30 @@ RUN if [ "$USE_OLLAMA" = "true" ]; then \
     rm -rf aws awscliv2.zip && \
     # cleanup
     rm -rf /var/lib/apt/lists/*; \
+    fi
+
+# Install Amazon SSM Agent for ECS Exec (configurable via build arg)
+RUN if [ "$ENABLE_ECS_EXEC" = "true" ]; then \
+    echo "Installing Amazon SSM Agent for ECS Exec support..." && \
+    # Install dependencies for SSM agent
+    apt-get update && \
+    apt-get install -y --no-install-recommends wget ca-certificates && \
+    # Download and install SSM agent for the correct architecture
+    ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "amd64" ]; then \
+        wget -q "https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_amd64/amazon-ssm-agent.deb" -O /tmp/amazon-ssm-agent.deb; \
+    elif [ "$ARCH" = "arm64" ]; then \
+        wget -q "https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_arm64/amazon-ssm-agent.deb" -O /tmp/amazon-ssm-agent.deb; \
+    else \
+        echo "Unsupported architecture: $ARCH" && exit 1; \
+    fi && \
+    dpkg -i /tmp/amazon-ssm-agent.deb && \
+    rm -f /tmp/amazon-ssm-agent.deb && \
+    # Cleanup
+    rm -rf /var/lib/apt/lists/* && \
+    echo "SSM Agent installation complete for architecture: $ARCH"; \
+    else \
+    echo "Skipping SSM Agent installation (ENABLE_ECS_EXEC=false)"; \
     fi
 
 # install python dependencies
