@@ -321,3 +321,7 @@ test-results/
 **/Testing/
 scripts/billing-tests/Testing/
 billing-tests-*/
+
+# Affinity Designer files
+*.af
+*.af~lock~
