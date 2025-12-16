@@ -136,6 +136,7 @@ def downgrade() -> None:
 ```
 
 **Get Latest Revision:**
+
 ```bash
 cd Product/owui/backend
 # Find the latest migration revision
@@ -481,150 +482,149 @@ awk 'NF {sub(/\r/, ""); printf "%s\\n",$0;}' billing-public-key.pem
 
 ```svelte
 <script lang="ts">
-    import { onMount } from 'svelte';
-    import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 
-    let billingToken = '';
-    let name = '';
-    let error = '';
-    let loading = false;
+	let billingToken = '';
+	let name = '';
+	let error = '';
+	let loading = false;
 
-    onMount(() => {
-        // Get billing token from URL query parameter
-        const params = new URLSearchParams(window.location.search);
-        billingToken = params.get('token') || '';
+	onMount(() => {
+		// Get billing token from URL query parameter
+		const params = new URLSearchParams(window.location.search);
+		billingToken = params.get('token') || '';
 
-        if (!billingToken) {
-            error = 'No billing token provided. Please complete payment first.';
-        }
-    });
+		if (!billingToken) {
+			error = 'No billing token provided. Please complete payment first.';
+		}
+	});
 
-    async function handleSignup() {
-        if (!name.trim()) {
-            error = 'Please enter your name';
-            return;
-        }
+	async function handleSignup() {
+		if (!name.trim()) {
+			error = 'Please enter your name';
+			return;
+		}
 
-        loading = true;
-        error = '';
+		loading = true;
+		error = '';
 
-        try {
-            const response = await fetch('/api/v1/auths/signup/billing', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    billing_token: billingToken,
-                    name: name.trim(),
-                    profile_image_url: '/user.png'
-                })
-            });
+		try {
+			const response = await fetch('/api/v1/auths/signup/billing', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					billing_token: billingToken,
+					name: name.trim(),
+					profile_image_url: '/user.png'
+				})
+			});
 
-            if (response.ok) {
-                const data = await response.json();
-                // Token is set as httponly cookie, redirect to app
-                goto('/');
-            } else {
-                const data = await response.json();
-                error = data.detail || 'Signup failed. Please try again.';
-            }
-        } catch (err) {
-            error = 'Network error. Please check your connection.';
-        } finally {
-            loading = false;
-        }
-    }
+			if (response.ok) {
+				const data = await response.json();
+				// Token is set as httponly cookie, redirect to app
+				goto('/');
+			} else {
+				const data = await response.json();
+				error = data.detail || 'Signup failed. Please try again.';
+			}
+		} catch (err) {
+			error = 'Network error. Please check your connection.';
+		} finally {
+			loading = false;
+		}
+	}
 </script>
 
 <div class="container">
-    <h1>Complete Your Account Setup</h1>
+	<h1>Complete Your Account Setup</h1>
 
-    {#if error}
-        <div class="error">{error}</div>
-    {/if}
+	{#if error}
+		<div class="error">{error}</div>
+	{/if}
 
-    <form on:submit|preventDefault={handleSignup}>
-        <label>
-            Your Name:
-            <input
-                type="text"
-                bind:value={name}
-                placeholder="Enter your name"
-                required
-                disabled={loading || !billingToken}
-            />
-        </label>
+	<form on:submit|preventDefault={handleSignup}>
+		<label>
+			Your Name:
+			<input
+				type="text"
+				bind:value={name}
+				placeholder="Enter your name"
+				required
+				disabled={loading || !billingToken}
+			/>
+		</label>
 
-        <button type="submit" disabled={loading || !billingToken}>
-            {loading ? 'Creating Account...' : 'Complete Setup'}
-        </button>
-    </form>
+		<button type="submit" disabled={loading || !billingToken}>
+			{loading ? 'Creating Account...' : 'Complete Setup'}
+		</button>
+	</form>
 
-    <p class="info">
-        Your subscription is active. Complete this one-time setup to access TPAI.
-    </p>
+	<p class="info">Your subscription is active. Complete this one-time setup to access TPAI.</p>
 </div>
 
 <style>
-    .container {
-        max-width: 500px;
-        margin: 100px auto;
-        padding: 2rem;
-        border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
+	.container {
+		max-width: 500px;
+		margin: 100px auto;
+		padding: 2rem;
+		border-radius: 8px;
+		box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+	}
 
-    .error {
-        background: #fee;
-        color: #c00;
-        padding: 1rem;
-        border-radius: 4px;
-        margin-bottom: 1rem;
-    }
+	.error {
+		background: #fee;
+		color: #c00;
+		padding: 1rem;
+		border-radius: 4px;
+		margin-bottom: 1rem;
+	}
 
-    label {
-        display: block;
-        margin-bottom: 1rem;
-    }
+	label {
+		display: block;
+		margin-bottom: 1rem;
+	}
 
-    input {
-        width: 100%;
-        padding: 0.75rem;
-        margin-top: 0.5rem;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        font-size: 1rem;
-    }
+	input {
+		width: 100%;
+		padding: 0.75rem;
+		margin-top: 0.5rem;
+		border: 1px solid #ddd;
+		border-radius: 4px;
+		font-size: 1rem;
+	}
 
-    button {
-        width: 100%;
-        padding: 0.75rem;
-        background: #007bff;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        font-size: 1rem;
-        cursor: pointer;
-    }
+	button {
+		width: 100%;
+		padding: 0.75rem;
+		background: #007bff;
+		color: white;
+		border: none;
+		border-radius: 4px;
+		font-size: 1rem;
+		cursor: pointer;
+	}
 
-    button:disabled {
-        background: #ccc;
-        cursor: not-allowed;
-    }
+	button:disabled {
+		background: #ccc;
+		cursor: not-allowed;
+	}
 
-    .info {
-        margin-top: 1rem;
-        text-align: center;
-        color: #666;
-        font-size: 0.9rem;
-    }
+	.info {
+		margin-top: 1rem;
+		text-align: center;
+		color: #666;
+		font-size: 0.9rem;
+	}
 </style>
 ```
 
 #### 7.2: Update Stripe Checkout Success URL
 
 In billing stack, update Stripe checkout session to redirect to:
+
 ```
 https://owui.tpai.local/billing?token={ACCESS_TOKEN}
 ```
@@ -716,6 +716,7 @@ curl -X POST http://localhost:8080/api/v1/auths/signup/billing \
 ## Subscription Tier Definitions
 
 ### FREE Tier
+
 - **Features**:
   - Basic chat interface
   - Limited model access (open-source models only)
@@ -724,6 +725,7 @@ curl -X POST http://localhost:8080/api/v1/auths/signup/billing \
   - No API access
 
 ### PRO Tier
+
 - **Features**:
   - All FREE features
   - Advanced model access (Claude, GPT-4, etc.)
@@ -733,6 +735,7 @@ curl -X POST http://localhost:8080/api/v1/auths/signup/billing \
   - Priority support
 
 ### ENTERPRISE Tier
+
 - **Features**:
   - All PRO features
   - Custom model fine-tuning
@@ -745,17 +748,20 @@ curl -X POST http://localhost:8080/api/v1/auths/signup/billing \
 ## Security Considerations
 
 ### Token Validation
+
 - ✅ JWT signature verification (RS256 with public key)
 - ✅ Expiration validation (24-hour tokens)
 - ✅ No plaintext secrets in code (environment variables)
 - ✅ No direct database access to billing system (cross-account isolation)
 
 ### PII Protection
+
 - ✅ User emails NOT stored in OWUI (generated emails like `uuid@billing.tpai.local`)
 - ✅ Billing customer_id is a UUID (not personally identifiable)
 - ✅ HMAC-SHA256 hashing in billing system (original email never leaves billing account)
 
 ### Access Control
+
 - ✅ Tier-based permissions enforced at route level
 - ✅ Grace period allows 7-day access after cancellation
 - ✅ Expired subscriptions denied access (except grace period)
@@ -765,11 +771,13 @@ curl -X POST http://localhost:8080/api/v1/auths/signup/billing \
 ### Issue: "Invalid or expired billing token"
 
 **Causes**:
+
 1. Token expired (>24 hours old)
 2. Public key mismatch
 3. Token not signed by billing system
 
 **Solutions**:
+
 ```bash
 # 1. Verify public key in OWUI matches billing system
 aws secretsmanager get-secret-value \
@@ -789,6 +797,7 @@ echo $BILLING_JWT_PUBLIC_KEY
 **Cause**: Subscription tier not properly set in user.info
 
 **Solution**:
+
 ```python
 # Check user's subscription tier
 user = Users.get_user_by_id(user_id)
@@ -805,6 +814,7 @@ Users.update_user_by_id(user_id, {
 **Cause**: Existing user table conflicts
 
 **Solution**:
+
 ```bash
 # Check current migration version
 cd Product/owui/backend
@@ -834,6 +844,7 @@ alembic history
 ### Key Metrics to Monitor
 
 1. **Billing Signup Success Rate**:
+
    ```python
    # Track successful /signup/billing calls
    billing_signups_total = Counter("billing_signups_total", "Total billing signups")
@@ -841,6 +852,7 @@ alembic history
    ```
 
 2. **Tier Distribution**:
+
    ```sql
    SELECT
      info->>'subscription_tier' as tier,

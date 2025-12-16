@@ -236,9 +236,7 @@
 			{#if $i18n.language === 'en-US'}
 				<div class="mb-2 text-xs text-gray-400 dark:text-gray-500">
 					Couldn't find your language?
-					<span class=" text-gray-300 font-medium">
-						Translation Support Available
-					</span>
+					<span class=" text-gray-300 font-medium"> Translation Support Available </span>
 				</div>
 			{/if}
 
