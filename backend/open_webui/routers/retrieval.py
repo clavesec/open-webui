@@ -1113,7 +1113,9 @@ def save_docs_to_vector_db(
             )
 
             try:
-                tiktoken.get_encoding(str(request.app.state.config.TIKTOKEN_ENCODING_NAME))
+                tiktoken.get_encoding(
+                    str(request.app.state.config.TIKTOKEN_ENCODING_NAME)
+                )
                 text_splitter = TokenTextSplitter(
                     encoding_name=str(request.app.state.config.TIKTOKEN_ENCODING_NAME),
                     chunk_size=request.app.state.config.CHUNK_SIZE,
@@ -1121,8 +1123,12 @@ def save_docs_to_vector_db(
                     add_start_index=True,
                 )
             except Exception as e:
-                log.warning(f"Failed to load tiktoken encoding {request.app.state.config.TIKTOKEN_ENCODING_NAME}: {e}")
-                log.info("Falling back to recursive character text splitter for air-gapped compatibility")
+                log.warning(
+                    f"Failed to load tiktoken encoding {request.app.state.config.TIKTOKEN_ENCODING_NAME}: {e}"
+                )
+                log.info(
+                    "Falling back to recursive character text splitter for air-gapped compatibility"
+                )
                 text_splitter = RecursiveCharacterTextSplitter(
                     chunk_size=request.app.state.config.CHUNK_SIZE,
                     chunk_overlap=request.app.state.config.CHUNK_OVERLAP,
