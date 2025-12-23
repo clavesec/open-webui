@@ -154,7 +154,9 @@ def mark_existing_migrations_complete(db):
             if old_name in recorded_migrations:
                 print(f"🗄️ PRE_MIGRATION: Removing incorrect migration name: {old_name}")
                 log.info(f"🗄️ PRE_MIGRATION: Removing incorrect migration name: {old_name}")
-                db.execute_sql("DELETE FROM migratehistory WHERE name = %s", (old_name,))
+                # Use ? as placeholder for SQLite/Peewee compatibility, it gets auto-converted for PostgreSQL
+                cursor = db.execute_sql("DELETE FROM migratehistory WHERE name = ?", (old_name,))
+                cursor.close()
 
         print("🗄️ PRE_MIGRATION: ✅ Cleaned up old incorrect migration names")
         log.info("🗄️ PRE_MIGRATION: ✅ Cleaned up old incorrect migration names")
