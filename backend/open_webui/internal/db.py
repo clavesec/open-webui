@@ -63,6 +63,12 @@ class JSONField(types.TypeDecorator):
 # Workaround to handle the peewee migration
 # This is required to ensure the peewee migration is handled before the alembic migration
 def handle_peewee_migration(DATABASE_URL):
+    # Temporary skip for manual database fix
+    if os.environ.get("SKIP_PEEWEE_MIGRATIONS") == "true":
+        print("🗄️ DB_MIGRATION: ⚠️  SKIPPING Peewee migrations (SKIP_PEEWEE_MIGRATIONS=true)")
+        log.warning("🗄️ DB_MIGRATION: ⚠️  SKIPPING Peewee migrations (SKIP_PEEWEE_MIGRATIONS=true)")
+        return
+
     db = None
     try:
         print("🗄️ DB_MIGRATION: Starting Peewee migration process...")
