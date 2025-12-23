@@ -61,6 +61,103 @@ class JSONField(types.TypeDecorator):
             return json.loads(value)
 
 
+def mark_existing_migrations_complete(db):
+    """Mark existing migrations as complete when tables already exist."""
+    try:
+        from datetime import datetime
+
+        # Check if core tables exist (auth, user, chat, tag)
+        cursor = db.execute_sql("""
+            SELECT COUNT(*) FROM pg_tables
+            WHERE schemaname = 'public'
+            AND tablename IN ('auth', 'user', 'chat', 'tag')
+        """)
+        core_tables_count = cursor.fetchone()[0]
+
+        if core_tables_count < 4:
+            print("🗄️ PRE_MIGRATION: Core tables don't exist yet, migrations will create them")
+            log.info("🗄️ PRE_MIGRATION: Core tables don't exist yet, migrations will create them")
+            return
+
+        print(f"🗄️ PRE_MIGRATION: Found {core_tables_count} core tables, checking migration tracking...")
+        log.info(f"🗄️ PRE_MIGRATION: Found {core_tables_count} core tables, checking migration tracking...")
+
+        # Check if migratehistory table exists
+        cursor = db.execute_sql("""
+            SELECT EXISTS (
+                SELECT FROM pg_tables
+                WHERE schemaname = 'public' AND tablename = 'migratehistory'
+            )
+        """)
+        migrate_table_exists = cursor.fetchone()[0]
+
+        if not migrate_table_exists:
+            print("🗄️ PRE_MIGRATION: Creating migratehistory table...")
+            log.info("🗄️ PRE_MIGRATION: Creating migratehistory table...")
+            db.execute_sql("""
+                CREATE TABLE migratehistory (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(255) NOT NULL,
+                    migrated_at TIMESTAMP NOT NULL
+                )
+            """)
+
+        # Check which migrations are already recorded
+        cursor = db.execute_sql("SELECT name FROM migratehistory ORDER BY name")
+        recorded_migrations = [row[0] for row in cursor.fetchall()]
+        print(f"🗄️ PRE_MIGRATION: Currently recorded migrations: {recorded_migrations}")
+        log.info(f"🗄️ PRE_MIGRATION: Currently recorded migrations: {recorded_migrations}")
+
+        # List of migrations that should be marked complete if tables exist
+        # (001-018 are the migrations that existed before our fix)
+        expected_migrations = [
+            '001_initial_schema',
+            '002_add_local_sharing',
+            '003_add_auth_api_key',
+            '004_add_chat_sharing',
+            '005_add_user_info',
+            '006_add_chat_tags',
+            '007_add_metadata_to_user',
+            '008_add_model_filter_config',
+            '009_add_model_config',
+            '010_add_tags_table_and_chat_tags',
+            '011_add_user_last_active_at',
+            '012_add_prompt',
+            '013_add_archived_flag_to_chat',
+            '014_add_local_sharing_to_chat',
+            '015_add_chat_metadata',
+            '016_add_file_model',
+            '017_add_ollama_model_details',
+            '018_add_modelfile_model_metadata',
+        ]
+
+        # Mark missing migrations as complete
+        now = datetime.now()
+        migrations_marked = 0
+        for migration_name in expected_migrations:
+            if migration_name not in recorded_migrations:
+                print(f"🗄️ PRE_MIGRATION: Marking {migration_name} as complete...")
+                log.info(f"🗄️ PRE_MIGRATION: Marking {migration_name} as complete...")
+                db.execute_sql(
+                    "INSERT INTO migratehistory (name, migrated_at) VALUES (%s, %s)",
+                    (migration_name, now)
+                )
+                migrations_marked += 1
+
+        if migrations_marked > 0:
+            print(f"🗄️ PRE_MIGRATION: ✅ Marked {migrations_marked} migrations as complete")
+            log.info(f"🗄️ PRE_MIGRATION: ✅ Marked {migrations_marked} migrations as complete")
+        else:
+            print("🗄️ PRE_MIGRATION: All expected migrations already recorded")
+            log.info("🗄️ PRE_MIGRATION: All expected migrations already recorded")
+
+    except Exception as e:
+        print(f"🗄️ PRE_MIGRATION: ⚠️  Error marking migrations complete: {e}")
+        log.warning(f"🗄️ PRE_MIGRATION: ⚠️  Error marking migrations complete: {e}")
+        log.exception("🗄️ PRE_MIGRATION: Full error traceback:")
+        # Don't raise - let migrations continue even if this fails
+
+
 def fix_tag_table_schema(db):
     """Fix tag table schema issues before running migrations."""
     try:
@@ -201,9 +298,14 @@ def handle_peewee_migration(DATABASE_URL):
                 print(f"🗄️ DB_MIGRATION: Migration file: {migration_file.name}")
                 log.info(f"🗄️ DB_MIGRATION: Migration file: {migration_file.name}")
 
-        # Pre-migration fix for tag table schema issues
+        # Pre-migration fixes
         print("🗄️ DB_MIGRATION: Running pre-migration fixes...")
         log.info("🗄️ DB_MIGRATION: Running pre-migration fixes...")
+
+        # First, mark existing migrations as complete if tables already exist
+        mark_existing_migrations_complete(db)
+
+        # Then fix tag table schema issues
         fix_tag_table_schema(db)
 
         print("🗄️ DB_MIGRATION: Creating migration router...")
