@@ -131,6 +131,34 @@ def mark_existing_migrations_complete(db):
             '018_add_function_is_global',
         ]
 
+        # Delete old incorrect migration names that don't match actual files
+        old_incorrect_names = [
+            '004_add_chat_sharing',
+            '005_add_user_info',
+            '006_add_chat_tags',
+            '007_add_metadata_to_user',
+            '008_add_model_filter_config',
+            '009_add_model_config',
+            '010_add_tags_table_and_chat_tags',
+            '011_add_user_last_active_at',
+            '012_add_prompt',
+            '013_add_archived_flag_to_chat',
+            '014_add_local_sharing_to_chat',
+            '015_add_chat_metadata',
+            '016_add_file_model',
+            '017_add_ollama_model_details',
+            '018_add_modelfile_model_metadata',
+        ]
+
+        for old_name in old_incorrect_names:
+            if old_name in recorded_migrations:
+                print(f"🗄️ PRE_MIGRATION: Removing incorrect migration name: {old_name}")
+                log.info(f"🗄️ PRE_MIGRATION: Removing incorrect migration name: {old_name}")
+                db.execute_sql("DELETE FROM migratehistory WHERE name = %s", (old_name,))
+
+        print("🗄️ PRE_MIGRATION: ✅ Cleaned up old incorrect migration names")
+        log.info("🗄️ PRE_MIGRATION: ✅ Cleaned up old incorrect migration names")
+
         # Mark missing migrations as complete
         now = datetime.now()
         migrations_marked = 0
