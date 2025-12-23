@@ -61,6 +61,107 @@ class JSONField(types.TypeDecorator):
             return json.loads(value)
 
 
+def fix_tag_table_schema(db):
+    """Fix tag table schema issues before running migrations."""
+    try:
+        # Check if tag table exists
+        cursor = db.execute_sql("""
+            SELECT EXISTS (
+                SELECT FROM pg_tables
+                WHERE schemaname = 'public' AND tablename = 'tag'
+            )
+        """)
+        tag_exists = cursor.fetchone()[0]
+
+        if not tag_exists:
+            print("🗄️ PRE_MIGRATION: Tag table does not exist yet, skipping fix")
+            log.info("🗄️ PRE_MIGRATION: Tag table does not exist yet, skipping fix")
+            return
+
+        print("🗄️ PRE_MIGRATION: Tag table exists, checking for schema issues...")
+        log.info("🗄️ PRE_MIGRATION: Tag table exists, checking for schema issues...")
+
+        # Check for duplicate (id, user_id) pairs
+        cursor = db.execute_sql("""
+            SELECT id, user_id, COUNT(*) as cnt
+            FROM tag
+            GROUP BY id, user_id
+            HAVING COUNT(*) > 1
+        """)
+        duplicates = cursor.fetchall()
+
+        if duplicates:
+            print(f"🗄️ PRE_MIGRATION: Found {len(duplicates)} duplicate (id, user_id) pairs, cleaning up...")
+            log.warning(f"🗄️ PRE_MIGRATION: Found {len(duplicates)} duplicate (id, user_id) pairs, cleaning up...")
+
+            # Delete duplicates, keeping first occurrence
+            db.execute_sql("""
+                DELETE FROM tag
+                WHERE ctid NOT IN (
+                    SELECT MIN(ctid)
+                    FROM tag
+                    GROUP BY id, user_id
+                )
+            """)
+            print(f"🗄️ PRE_MIGRATION: ✅ Cleaned up duplicate records")
+            log.info(f"🗄️ PRE_MIGRATION: ✅ Cleaned up duplicate records")
+
+        # Check current primary key
+        cursor = db.execute_sql("""
+            SELECT conname, pg_get_constraintdef(c.oid)
+            FROM pg_constraint c
+            WHERE c.conrelid = 'tag'::regclass
+              AND c.contype = 'p'
+        """)
+        pk_info = cursor.fetchone()
+
+        if pk_info:
+            pk_name, pk_def = pk_info
+            print(f"🗄️ PRE_MIGRATION: Current primary key: {pk_name} - {pk_def}")
+            log.info(f"🗄️ PRE_MIGRATION: Current primary key: {pk_name} - {pk_def}")
+
+            # Check if it's already a composite key
+            if '(id, user_id)' in pk_def or '(user_id, id)' in pk_def:
+                print("🗄️ PRE_MIGRATION: ✅ Tag table already has composite primary key")
+                log.info("🗄️ PRE_MIGRATION: ✅ Tag table already has composite primary key")
+                return
+
+            # Drop old primary key
+            print(f"🗄️ PRE_MIGRATION: Dropping old primary key: {pk_name}")
+            log.info(f"🗄️ PRE_MIGRATION: Dropping old primary key: {pk_name}")
+            db.execute_sql(f'ALTER TABLE tag DROP CONSTRAINT "{pk_name}"')
+
+        # Drop conflicting unique constraints and indexes
+        for constraint_name in ['uq_id_user_id', 'tag_id']:
+            cursor = db.execute_sql("""
+                SELECT 1 FROM pg_constraint
+                WHERE conrelid = 'tag'::regclass
+                  AND contype = 'u'
+                  AND conname = %s
+            """, (constraint_name,))
+            if cursor.fetchone():
+                print(f"🗄️ PRE_MIGRATION: Dropping unique constraint: {constraint_name}")
+                log.info(f"🗄️ PRE_MIGRATION: Dropping unique constraint: {constraint_name}")
+                db.execute_sql(f'ALTER TABLE tag DROP CONSTRAINT "{constraint_name}"')
+
+        # Drop unique indexes
+        for index_name in ['tag_id', 'uq_id_user_id']:
+            db.execute_sql(f'DROP INDEX IF EXISTS "{index_name}"')
+
+        # Create composite primary key
+        print("🗄️ PRE_MIGRATION: Creating composite primary key (id, user_id)...")
+        log.info("🗄️ PRE_MIGRATION: Creating composite primary key (id, user_id)...")
+        db.execute_sql('ALTER TABLE tag ADD CONSTRAINT pk_id_user_id PRIMARY KEY (id, user_id)')
+        print("🗄️ PRE_MIGRATION: ✅ Created composite primary key")
+        log.info("🗄️ PRE_MIGRATION: ✅ Created composite primary key")
+
+    except Exception as e:
+        print(f"🗄️ PRE_MIGRATION: ⚠️  Error during pre-migration fix: {e}")
+        log.warning(f"🗄️ PRE_MIGRATION: ⚠️  Error during pre-migration fix: {e}")
+        log.exception("🗄️ PRE_MIGRATION: Full error traceback:")
+        # Don't raise - let migrations continue even if pre-fix fails
+
+
 # Workaround to handle the peewee migration
 # This is required to ensure the peewee migration is handled before the alembic migration
 def handle_peewee_migration(DATABASE_URL):
@@ -99,6 +200,11 @@ def handle_peewee_migration(DATABASE_URL):
             for migration_file in migration_files:
                 print(f"🗄️ DB_MIGRATION: Migration file: {migration_file.name}")
                 log.info(f"🗄️ DB_MIGRATION: Migration file: {migration_file.name}")
+
+        # Pre-migration fix for tag table schema issues
+        print("🗄️ DB_MIGRATION: Running pre-migration fixes...")
+        log.info("🗄️ DB_MIGRATION: Running pre-migration fixes...")
+        fix_tag_table_schema(db)
 
         print("🗄️ DB_MIGRATION: Creating migration router...")
         log.info("🗄️ DB_MIGRATION: Creating migration router...")
