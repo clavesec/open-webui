@@ -289,6 +289,78 @@ def fix_tag_table_schema(db):
         # Don't raise - let migrations continue even if pre-fix fails
 
 
+def fix_alembic_config_table(db):
+    """
+    Fix Alembic config table if it was dropped by bad migration.
+
+    The migration 743f9468c8b1_add_billing_enrollment_fields.py was auto-generated
+    incorrectly and dropped the config table in upgrade() instead of creating it.
+    This function recreates the config table if needed and cleans up bad migration history.
+    """
+    try:
+        # Check if config table exists
+        cursor = db.execute_sql("""
+            SELECT EXISTS (
+                SELECT FROM pg_tables
+                WHERE schemaname = 'public' AND tablename = 'config'
+            )
+        """)
+        config_exists = cursor.fetchone()[0]
+
+        if config_exists:
+            print("🗄️ PRE_MIGRATION: Config table exists, no fix needed")
+            log.info("🗄️ PRE_MIGRATION: Config table exists, no fix needed")
+        else:
+            print("🗄️ PRE_MIGRATION: Config table missing! Recreating...")
+            log.warning("🗄️ PRE_MIGRATION: Config table missing! Recreating...")
+
+            # Recreate config table (from migration ca81bd47c050_add_config_table.py)
+            db.execute_sql("""
+                CREATE TABLE config (
+                    id SERIAL PRIMARY KEY,
+                    data JSON NOT NULL,
+                    version INTEGER NOT NULL,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            print("🗄️ PRE_MIGRATION: ✅ Recreated config table")
+            log.info("🗄️ PRE_MIGRATION: ✅ Recreated config table")
+
+        # Check if alembic_version table exists
+        cursor = db.execute_sql("""
+            SELECT EXISTS (
+                SELECT FROM pg_tables
+                WHERE schemaname = 'public' AND tablename = 'alembic_version'
+            )
+        """)
+        alembic_version_exists = cursor.fetchone()[0]
+
+        if alembic_version_exists:
+            # Check for bad migration 743f9468c8b1
+            cursor = db.execute_sql("""
+                SELECT version_num FROM alembic_version
+                WHERE version_num = '743f9468c8b1'
+            """)
+            bad_migration = cursor.fetchone()
+
+            if bad_migration:
+                print("🗄️ PRE_MIGRATION: Removing bad migration 743f9468c8b1 from alembic_version...")
+                log.warning("🗄️ PRE_MIGRATION: Removing bad migration 743f9468c8b1 from alembic_version...")
+                db.execute_sql("""
+                    DELETE FROM alembic_version
+                    WHERE version_num = '743f9468c8b1'
+                """)
+                print("🗄️ PRE_MIGRATION: ✅ Removed bad migration from history")
+                log.info("🗄️ PRE_MIGRATION: ✅ Removed bad migration from history")
+
+    except Exception as e:
+        print(f"🗄️ PRE_MIGRATION: ⚠️  Error fixing config table: {e}")
+        log.warning(f"🗄️ PRE_MIGRATION: ⚠️  Error fixing config table: {e}")
+        log.exception("🗄️ PRE_MIGRATION: Full error traceback:")
+        # Don't raise - let migrations continue even if this fails
+
+
 # Workaround to handle the peewee migration
 # This is required to ensure the peewee migration is handled before the alembic migration
 def handle_peewee_migration(DATABASE_URL):
@@ -335,8 +407,11 @@ def handle_peewee_migration(DATABASE_URL):
         # First, mark existing migrations as complete if tables already exist
         mark_existing_migrations_complete(db)
 
-        # Then fix tag table schema issues
+        # Fix tag table schema issues
         fix_tag_table_schema(db)
+
+        # Fix Alembic config table if it was dropped by bad migration
+        fix_alembic_config_table(db)
 
         print("🗄️ DB_MIGRATION: Creating migration router...")
         log.info("🗄️ DB_MIGRATION: Creating migration router...")
