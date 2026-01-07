@@ -361,6 +361,57 @@ def fix_alembic_config_table(db):
         # Don't raise - let migrations continue even if this fails
 
 
+def fix_missing_function_table(db):
+    """
+    Fix missing function table if it was never created.
+
+    The mark_existing_migrations_complete() function marks Peewee migration
+    015_add_functions as complete when core tables exist, even if the function
+    table doesn't exist. This function creates the table if needed.
+    """
+    try:
+        cursor = db.execute_sql("""
+            SELECT EXISTS (
+                SELECT FROM pg_tables
+                WHERE schemaname = 'public' AND tablename = 'function'
+            )
+        """)
+        function_exists = cursor.fetchone()[0]
+
+        if function_exists:
+            print("🗄️ PRE_MIGRATION: Function table exists, no fix needed")
+            log.info("🗄️ PRE_MIGRATION: Function table exists, no fix needed")
+            return
+
+        print("🗄️ PRE_MIGRATION: Function table missing! Creating...")
+        log.warning("🗄️ PRE_MIGRATION: Function table missing! Creating...")
+
+        # Create function table (schema from 015_add_functions.py and 7e5b5dc7342b_init.py)
+        db.execute_sql("""
+            CREATE TABLE function (
+                id TEXT PRIMARY KEY,
+                user_id TEXT,
+                name TEXT,
+                type TEXT,
+                content TEXT,
+                meta TEXT,
+                valves TEXT,
+                is_active BOOLEAN,
+                is_global BOOLEAN,
+                updated_at BIGINT,
+                created_at BIGINT
+            )
+        """)
+        print("🗄️ PRE_MIGRATION: ✅ Created function table")
+        log.info("🗄️ PRE_MIGRATION: ✅ Created function table")
+
+    except Exception as e:
+        print(f"🗄️ PRE_MIGRATION: ⚠️  Error fixing function table: {e}")
+        log.warning(f"🗄️ PRE_MIGRATION: ⚠️  Error fixing function table: {e}")
+        log.exception("🗄️ PRE_MIGRATION: Full error traceback:")
+        # Don't raise - let migrations continue even if this fails
+
+
 # Workaround to handle the peewee migration
 # This is required to ensure the peewee migration is handled before the alembic migration
 def handle_peewee_migration(DATABASE_URL):
@@ -412,6 +463,9 @@ def handle_peewee_migration(DATABASE_URL):
 
         # Fix Alembic config table if it was dropped by bad migration
         fix_alembic_config_table(db)
+
+        # Fix missing function table if it was never created
+        fix_missing_function_table(db)
 
         print("🗄️ DB_MIGRATION: Creating migration router...")
         log.info("🗄️ DB_MIGRATION: Creating migration router...")
