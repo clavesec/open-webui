@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 
 # revision identifiers, used by Alembic.
@@ -19,16 +20,40 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Add billing enrollment fields to user table
-    with op.batch_alter_table('user', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('email_hmac', sa.String(length=255), nullable=True))
-        batch_op.add_column(sa.Column('billing_customer_id', sa.String(length=255), nullable=True))
-        batch_op.create_index(batch_op.f('ix_user_email_hmac'), ['email_hmac'], unique=False)
-        batch_op.create_index(batch_op.f('ix_user_billing_customer_id'), ['billing_customer_id'], unique=True)
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
 
-    # Add email_hmac to auth table
+    # Check existing columns in user table
+    user_columns = set()
+    if "user" in existing_tables:
+        user_columns = {col["name"] for col in inspector.get_columns("user")}
+
+    # Check existing indexes in user table
+    user_indexes = set()
+    if "user" in existing_tables:
+        user_indexes = {idx["name"] for idx in inspector.get_indexes("user")}
+
+    # Add billing enrollment fields to user table (idempotent)
+    with op.batch_alter_table('user', schema=None) as batch_op:
+        if 'email_hmac' not in user_columns:
+            batch_op.add_column(sa.Column('email_hmac', sa.String(length=255), nullable=True))
+        if 'billing_customer_id' not in user_columns:
+            batch_op.add_column(sa.Column('billing_customer_id', sa.String(length=255), nullable=True))
+        if 'ix_user_email_hmac' not in user_indexes:
+            batch_op.create_index(batch_op.f('ix_user_email_hmac'), ['email_hmac'], unique=False)
+        if 'ix_user_billing_customer_id' not in user_indexes:
+            batch_op.create_index(batch_op.f('ix_user_billing_customer_id'), ['billing_customer_id'], unique=True)
+
+    # Check existing columns in auth table
+    auth_columns = set()
+    if "auth" in existing_tables:
+        auth_columns = {col["name"] for col in inspector.get_columns("auth")}
+
+    # Add email_hmac to auth table (idempotent)
     with op.batch_alter_table('auth', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('email_hmac', sa.String(length=255), nullable=True))
+        if 'email_hmac' not in auth_columns:
+            batch_op.add_column(sa.Column('email_hmac', sa.String(length=255), nullable=True))
 
 
 def downgrade() -> None:
