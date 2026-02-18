@@ -126,7 +126,7 @@ class UserListResponse(BaseModel):
 class UserResponse(BaseModel):
     id: str
     name: str
-    email: str
+    email: Optional[str] = None
     role: str
     profile_image_url: str
 
