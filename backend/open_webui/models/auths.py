@@ -60,7 +60,7 @@ class ApiKey(BaseModel):
 
 class UserResponse(BaseModel):
     id: str
-    email: str
+    email: Optional[str] = None  # Optional for billing-enrolled users (no PII stored)
     name: str
     role: str
     profile_image_url: str
