@@ -36,7 +36,15 @@
 
   function doRefresh() {
     var csrf = getCookie(CSRF_COOKIE);
-    if (!csrf) return; // No CSRF yet — likely right after bridge redirect
+    if (!csrf) {
+      // CSRF cookie expired (tab was sleeping past cookie max-age).
+      // If session cookie is also gone, redirect to re-auth immediately.
+      if (!getCookie('tpai_session')) {
+        var ret = encodeURIComponent(currentReturnUrl());
+        window.location.replace('/auth/start?return_url=' + ret);
+      }
+      return;
+    }
 
     fetch('/auth/refresh', {
       method: 'POST',
@@ -82,10 +90,13 @@
     }, CSRF_WAIT_INTERVAL_MS);
   }
 
-  // Keep localStorage token roughly in sync on navigation events
+  // When tab becomes visible, refresh immediately (timer doesn't run while sleeping)
   try {
     window.addEventListener('visibilitychange', function () {
-      if (!document.hidden) syncOwuiTokenToLocalStorage();
+      if (!document.hidden) {
+        syncOwuiTokenToLocalStorage();
+        doRefresh();
+      }
     });
     window.addEventListener('focus', syncOwuiTokenToLocalStorage);
   } catch (_) {
