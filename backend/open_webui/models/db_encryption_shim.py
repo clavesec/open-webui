@@ -6,7 +6,6 @@ from sqlalchemy.orm.attributes import flag_modified
 
 # Import the new encryption utility
 from open_webui.utils import encryption_utils
-from open_webui.utils.logger import ASSERT
 
 # Assuming your Chat model is in a 'chats' file
 from .chats import Chat
@@ -33,7 +32,7 @@ def _set_dek_for_chat_operation(user_id: str, db_session: Session):
     #                 though Users.get_user_by_id typically manages its own session.
 
     if not user_id:
-        ASSERT(
+        log.warning(
             "No user_id provided for chat operation. Chat content will use mock key (if unencrypted) or fail decryption if it was user-encrypted."
         )
         # Explicitly set context to None, so encryption_utils.get_key() falls back to MOCK_ENCRYPTION_KEY
@@ -45,7 +44,7 @@ def _set_dek_for_chat_operation(user_id: str, db_session: Session):
     user = Users.get_user_by_id(user_id)
 
     if not user:
-        ASSERT(
+        log.warning(
             f"User not found for ID: {user_id}. Cannot set user-specific DEK. Fallback to mock key."
         )
         encryption_utils.current_user_dek_context.set(None)
@@ -54,7 +53,7 @@ def _set_dek_for_chat_operation(user_id: str, db_session: Session):
     # UserKey is temporarily stored in DB for local dev. In prod, it comes from client cert.
     # TODO: When client certs are implemented, UserKey retrieval will change.
     if not user.user_key or not user.user_encrypted_dek:
-        ASSERT(
+        log.warning(
             f"User {user_id} is missing 'user_key' or 'user_encrypted_dek' in DB. "
             "Cannot perform user-specific encryption/decryption. Fallback to mock key."
         )
@@ -72,7 +71,7 @@ def _set_dek_for_chat_operation(user_id: str, db_session: Session):
             f"Successfully set plaintext DEK in context for user {user_id} for chat operation."
         )
     except Exception as e:
-        ASSERT(f"Failed to decrypt DEK for user {user_id}: {e}. Fallback to mock key.")
+        log.warning(f"Failed to decrypt DEK for user {user_id}: {e}. Fallback to mock key.")
         encryption_utils.current_user_dek_context.set(None)
 
 
@@ -178,7 +177,7 @@ def _traverse_and_decrypt(chat_obj: Chat):
         for msg_id, message in history_messages.items():
             if not isinstance(message, dict):
                 # Not expected; perhaps a malformed history entry?
-                ASSERT(f"Malformed history message entry for ID {msg_id}: {message}")
+                log.warning(f"Malformed history message entry for ID {msg_id}: {message}")
                 continue
             content_data = message["content"]
 
