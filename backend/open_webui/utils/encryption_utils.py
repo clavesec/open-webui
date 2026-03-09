@@ -10,21 +10,13 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.backends import default_backend
 
-# --- Mock Key for Development/Fallback ---
-# This key is used if a user-specific DEK is not available in the context.
-# TODO: In a production AWS environment, for unauthenticated contexts or errors, decide on a strategy.
-# This MOCK_ENCRYPTION_KEY should NOT be used for actual user data encryption if per-user encryption is active.
-MOCK_ENCRYPTION_KEY = Fernet.generate_key()  # In-memory, changes on app restart.
-# For consistent development, you might hardcode a generated key:
-# MOCK_ENCRYPTION_KEY = b"YfVjVgInCh_ES_pA0fFfUnKx-2YfVjVgInCh_ES_pA0="
-
 # --- Local HMAC Key for User ID generation (Simulation) ---
 # This key is used to simulate AWS KMS GenerateMac for UserID generation during local development.
 # TODO: In AWS, replace usage of this key with actual calls to kms:GenerateMac using a dedicated KMS HMAC key.
 # Ensure this is a secure, persistent key in a real local setup if needed beyond transient dev.
-LOCAL_HMAC_KEY = (
-    b"12345678901234567890123456789012"  # Ensure this is 32 bytes for SHA256.
-)
+LOCAL_HMAC_KEY: bytes = os.environ.get("TPAI_LOCAL_HMAC_KEY", "").encode("utf-8")
+if not LOCAL_HMAC_KEY:
+    raise RuntimeError("TPAI_LOCAL_HMAC_KEY is required (32-byte key for user ID derivation)")
 
 # --- Context Variable for Per-User Data Encryption Key (DEK) ---
 # This context variable holds the active plaintext DEK for the current user's operation.
@@ -38,75 +30,60 @@ current_user_dek_context: ContextVar[bytes | None] = ContextVar(
 # --- Core Encryption/Decryption Functions ---
 
 
-def get_key() -> bytes:
-    # Retrieves the encryption key for message content.
-    # Prioritizes user-specific DEK from context variable if available.
-    # Falls back to the MOCK_ENCRYPTION_KEY if no user DEK is set
-    # (e.g., for unauthenticated contexts, errors, or if user-specific keys are not yet implemented).
-    user_dek = current_user_dek_context.get()
-    if user_dek:
-        # Using the per-user DEK (already in Fernet key format)
-        return user_dek
-    #
-    # DEBUG ONLY!!!
-    #
-    # Fallback: Using the global mock key
-    print(
-        "Warning: Using MOCK_ENCRYPTION_KEY. Ensure this is intended (Phase 1 or unauthenticated context)."
-    )
-    return MOCK_ENCRYPTION_KEY
+def get_key() -> bytes | None:
+    """Returns the per-user DEK from context, or None if not set.
+    When None, encryption/decryption is skipped (data stored as plaintext)."""
+    return current_user_dek_context.get()
 
 
 def encrypt_message(plaintext: str) -> str:
-    # Encrypts a plaintext string using Fernet, then Base64 encodes the ciphertext.
-    # The key is retrieved via get_key() (which respects the user-specific DEK context).
+    """Encrypts a plaintext string using Fernet + Base64.
+    If no user DEK is set, returns plaintext unchanged (no encryption)."""
     if not plaintext:
-        return plaintext  # Or handle as an error, depending on requirements
+        return plaintext
 
     key = get_key()
+    if key is None:
+        return plaintext  # No DEK → store as plaintext
+
     f = Fernet(key)
     try:
         token = f.encrypt(plaintext.encode("utf-8"))
         return base64.urlsafe_b64encode(token).decode("utf-8")
     except Exception as e:
-        # Log error appropriately
         ASSERT(f"Encryption failed: {e}")
-        raise  # Or return a specific error indicator
+        raise
 
 
 def decrypt_message(base64_ciphertext: str) -> str:
-    # Base64 decodes an input string, then decrypts it using Fernet.
-    # The key is retrieved via get_key() (which respects the user-specific DEK context).
-    # Handles potential errors during decoding or decryption by returning original data.
+    """Base64 decodes then Fernet-decrypts a string.
+    If no user DEK is set, returns input unchanged (assumed plaintext)."""
     if not base64_ciphertext:
-        return base64_ciphertext  # Or handle as an error
+        return base64_ciphertext
 
     key = get_key()
+    if key is None:
+        return base64_ciphertext  # No DEK → pass through
+
     f = Fernet(key)
     try:
-        # Ensure the input is a string for decode
         if not isinstance(base64_ciphertext, str):
-            # This might happen if data is already decrypted or not string type
-            # print(f"Warning: decrypt_message received non-string input: {type(base64_ciphertext)}. Returning as is.")
             return str(base64_ciphertext)
 
         token = base64.urlsafe_b64decode(base64_ciphertext.encode("utf-8"))
         decrypted_bytes = f.decrypt(token)
         return decrypted_bytes.decode("utf-8")
     except (InvalidToken, TypeError):
-        # InvalidToken: Decryption failed (wrong key, corrupted data).
-        # TypeError: Fernet might raise this if data is already decrypted bytes.
         ASSERT(
-            f"Decryption failed: Invalid token or type error. Returning original data: {base64_ciphertext}"
+            f"Decryption failed: Invalid token or type error. Returning original data."
         )
-        return base64_ciphertext  # Return original data on decryption failure
+        return base64_ciphertext
     except (base64.binascii.Error, ValueError):
-        # Error in base64 decoding (e.g., invalid padding, non-base64 characters).
-        ASSERT(f"Base64 decoding failed: {base64_ciphertext}. Returning original data.")
-        return base64_ciphertext  # Return original data
+        ASSERT(f"Base64 decoding failed. Returning original data.")
+        return base64_ciphertext
     except Exception as e:
         ASSERT(f"Decryption failed with unexpected error: {e}")
-        return base64_ciphertext  # Fallback
+        return base64_ciphertext
 
 
 # --- User-Specific Key Management Functions ---
@@ -401,16 +378,13 @@ if __name__ == "__main__":
 
     current_user_dek_context.reset(token_context)  # Clear context
 
-    # Test Fallback to MOCK_ENCRYPTION_KEY for messages
-    print("\nTesting Message Encryption/Decryption with Fallback Mock Key...")
-    # Context is now clear, so get_key() should use MOCK_ENCRYPTION_KEY
-    mock_key_message = "Message encrypted with mock key."
-    encrypted_mock_message = encrypt_message(mock_key_message)
-    decrypted_mock_message = decrypt_message(encrypted_mock_message)
-    assert (
-        decrypted_mock_message == mock_key_message
-    ), "Message E2E with mock key failed."
-    print(f"Mock Key Enc/Dec Cycle Passed for: '{mock_key_message}'")
+    # Test no-DEK passthrough mode
+    print("\nTesting no-DEK passthrough mode...")
+    # Context is now clear, so get_key() returns None → passthrough
+    passthrough_msg = "Message without encryption."
+    assert encrypt_message(passthrough_msg) == passthrough_msg, "No-DEK encrypt should passthrough"
+    assert decrypt_message(passthrough_msg) == passthrough_msg, "No-DEK decrypt should passthrough"
+    print("No-DEK passthrough mode passed.")
 
     # Unit tests from previous step (for completeness of the __main__ block)
     print("\n--- Running Detailed Unit Tests (from previous step) ---")

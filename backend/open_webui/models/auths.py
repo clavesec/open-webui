@@ -274,6 +274,13 @@ class AuthsTable:
             db.add(db_auth_entry)
             log.info(f"Auth entry prepared for billing-enrolled user: {user_id}")
 
+            # Provision per-user encryption — same envelope as insert_new_auth()
+            # user_id IS the email_hmac; no raw email involved — no-PII preserved
+            salt_val = encryption_utils.generate_salt()
+            user_key_val = encryption_utils.derive_key_from_user_id(user_id, salt_val)
+            dek_plaintext = encryption_utils.generate_dek()
+            user_encrypted_dek_val = encryption_utils.encrypt_dek(dek_plaintext, user_key_val)
+
             # Create User record
             user = Users.insert_new_user(
                 id=user_id,
@@ -284,10 +291,10 @@ class AuthsTable:
                 profile_image_url="/user.png",
                 role=role,
                 oauth_sub=None,
-                # No encryption fields for billing-enrolled users
-                salt=None,
-                user_key=None,
-                user_encrypted_dek=None,
+                # Encryption fields provisioned above
+                salt=salt_val,
+                user_key=user_key_val,
+                user_encrypted_dek=user_encrypted_dek_val,
                 kms_encrypted_dek=None,
             )
 

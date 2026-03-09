@@ -33,9 +33,8 @@ def _set_dek_for_chat_operation(user_id: str, db_session: Session):
 
     if not user_id:
         log.warning(
-            "No user_id provided for chat operation. Chat content will use mock key (if unencrypted) or fail decryption if it was user-encrypted."
+            "No user_id provided for chat operation. Content stored as plaintext."
         )
-        # Explicitly set context to None, so encryption_utils.get_key() falls back to MOCK_ENCRYPTION_KEY
         encryption_utils.current_user_dek_context.set(None)
         return
 
@@ -45,17 +44,15 @@ def _set_dek_for_chat_operation(user_id: str, db_session: Session):
 
     if not user:
         log.warning(
-            f"User not found for ID: {user_id}. Cannot set user-specific DEK. Fallback to mock key."
+            f"User not found for ID: {user_id}. No encryption (plaintext mode)."
         )
         encryption_utils.current_user_dek_context.set(None)
         return
 
     # UserKey is temporarily stored in DB for local dev. In prod, it comes from client cert.
-    # TODO: When client certs are implemented, UserKey retrieval will change.
     if not user.user_key or not user.user_encrypted_dek:
-        log.warning(
-            f"User {user_id} is missing 'user_key' or 'user_encrypted_dek' in DB. "
-            "Cannot perform user-specific encryption/decryption. Fallback to mock key."
+        log.debug(
+            f"User {user_id} has no encryption keys. Content stored as plaintext."
         )
         encryption_utils.current_user_dek_context.set(None)
         return
@@ -71,7 +68,7 @@ def _set_dek_for_chat_operation(user_id: str, db_session: Session):
             f"Successfully set plaintext DEK in context for user {user_id} for chat operation."
         )
     except Exception as e:
-        log.warning(f"Failed to decrypt DEK for user {user_id}: {e}. Fallback to mock key.")
+        log.warning(f"Failed to decrypt DEK for user {user_id}: {e}. Content stored as plaintext.")
         encryption_utils.current_user_dek_context.set(None)
 
 
@@ -92,52 +89,46 @@ def _traverse_and_encrypt(chat_obj: Chat):
 
     modified = False
 
+    # Skip encryption entirely when no user DEK is set
+    if encryption_utils.get_key() is None:
+        log.debug("No user DEK set — skipping encryption (plaintext mode).")
+        return
+
     # This handles the primary message list.
     messages = chat_obj.chat.get("messages", [])
     if isinstance(messages, list):
         for message in messages:
-            content = message.get("content")  # Use .get for safer access
+            content = message.get("content")
+            if content is None:
+                continue
             # Encrypt if content is a string and not already in the new encrypted format
-            if isinstance(content, str) and not (
-                isinstance(content, dict) and content.get("is_encrypted")
-            ):
-
-                log.debug(f"ENCRYPTING content for role: {message.get('role')}")
-                plaintext = content
-                if not plaintext:  # Skip empty content
+            if isinstance(content, str):
+                if not content:  # Skip empty content
                     continue
-
-                log.info(f"(CHAT) BEFORE ENCRYPT: {plaintext[:30]}...")
-                ciphertext = encryption_utils.encrypt_message(plaintext)
+                log.debug(f"Encrypting chat content ({len(content)} chars)")
+                ciphertext = encryption_utils.encrypt_message(content)
                 message["content"] = {"ciphertext": ciphertext, "is_encrypted": True}
-
-                log.info(f" (CHAT) AFTER ENCRYPT: {ciphertext[:30]}...")
                 modified = True
 
     # This handles the nested history structure.
     history = chat_obj.chat.get("history", {})
     history_messages = (
         history.get("messages", {}) if isinstance(history, dict) else {}
-    )  # Ensure history itself is a dict
+    )
 
     if isinstance(history_messages, dict):
-        for msg_id, message in history_messages.items():  # Ensure message is a dict
-            content = message["content"]
-            if isinstance(content, str) and not (
-                isinstance(content, dict) and content.get("is_encrypted")
-            ):
-                log.debug(
-                    f"ENCRYPTING content for role: {message.get('role')} in history (ID: {msg_id})"
-                )
-                plaintext = content
-                if not plaintext:
+        for msg_id, message in history_messages.items():
+            if not isinstance(message, dict):
+                continue
+            content = message.get("content")
+            if content is None:
+                continue
+            if isinstance(content, str):
+                if not content:
                     continue
-
-                log.info(f"(HISTORY) BEFORE ENCRYPT: {plaintext[:30]}...")
-                ciphertext = encryption_utils.encrypt_message(plaintext)
+                log.debug(f"Encrypting history content ({len(content)} chars)")
+                ciphertext = encryption_utils.encrypt_message(content)
                 message["content"] = {"ciphertext": ciphertext, "is_encrypted": True}
-
-                log.info(f"(HISTORY) AFTER ENCRYPT: {ciphertext[:30]}...")
                 modified = True
 
     if modified:
@@ -157,18 +148,22 @@ def _traverse_and_decrypt(chat_obj: Chat):
     if isinstance(messages, list):
         for message in messages:
             content_data = message.get("content")
+            if content_data is None:
+                continue
             if isinstance(content_data, dict) and content_data.get("is_encrypted"):
                 ciphertext = content_data.get("ciphertext", "")
-                log.info(f"(CHAT) BEFORE DECRYPT: {ciphertext[:30]}...")
+                log.debug("Decrypting chat content")
                 try:
                     plaintext = encryption_utils.decrypt_message(ciphertext)
-                    message["content"] = plaintext
-                    log.info(f"(CHAT) AFTER DECRYPT: {plaintext[:30]}...")
+                    if plaintext == ciphertext and ciphertext:
+                        # decrypt_message returned original data (silent failure)
+                        log.error("DECRYPTION FAILED for chat message: returned original ciphertext")
+                        # Preserve the encrypted dict as-is
+                    else:
+                        message["content"] = plaintext
                 except Exception as e:
                     log.error(f"DECRYPTION FAILED for chat message: {e}")
-                    message["content"] = (
-                        "[DECRYPTION ERROR]"  # Show error in place of content
-                    )
+                    # Preserve the encrypted dict as-is so it can be retried later
 
     # Process nested history messages
     history = chat_obj.chat.get("history", {})
@@ -176,22 +171,25 @@ def _traverse_and_decrypt(chat_obj: Chat):
     if isinstance(history_messages, dict):
         for msg_id, message in history_messages.items():
             if not isinstance(message, dict):
-                # Not expected; perhaps a malformed history entry?
-                log.warning(f"Malformed history message entry for ID {msg_id}: {message}")
+                log.warning(f"Malformed history message entry for ID {msg_id}")
                 continue
-            content_data = message["content"]
+            content_data = message.get("content")
+            if content_data is None:
+                continue
 
             if isinstance(content_data, dict) and content_data.get("is_encrypted"):
                 ciphertext = content_data.get("ciphertext", "")
-                log.info(f"(HISTORY) BEFORE DECRYPT: {ciphertext[:30]}...")
-
+                log.debug("Decrypting history content")
                 try:
                     plaintext = encryption_utils.decrypt_message(ciphertext)
-                    message["content"] = plaintext
-                    log.info(f"(HISTORY) AFTER DECRYPT: {plaintext[:30]}...")
+                    if plaintext == ciphertext and ciphertext:
+                        log.error(f"DECRYPTION FAILED for history message {msg_id}: returned original ciphertext")
+                        # Preserve the encrypted dict as-is
+                    else:
+                        message["content"] = plaintext
                 except Exception as e:
                     log.error(f"DECRYPTION FAILED for history message {msg_id}: {e}")
-                    message["content"] = "[DECRYPTION ERROR]"
+                    # Preserve the encrypted dict as-is
 
 
 @event.listens_for(Session, "before_flush")
