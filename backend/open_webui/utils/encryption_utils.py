@@ -16,7 +16,10 @@ from cryptography.hazmat.backends import default_backend
 # Ensure this is a secure, persistent key in a real local setup if needed beyond transient dev.
 LOCAL_HMAC_KEY: bytes = os.environ.get("TPAI_LOCAL_HMAC_KEY", "").encode("utf-8")
 if not LOCAL_HMAC_KEY:
-    raise RuntimeError("TPAI_LOCAL_HMAC_KEY is required (32-byte key for user ID derivation)")
+    import logging as _logging
+    _logging.getLogger(__name__).warning(
+        "TPAI_LOCAL_HMAC_KEY not set — user ID generation will fail until configured"
+    )
 
 # --- Context Variable for Per-User Data Encryption Key (DEK) ---
 # This context variable holds the active plaintext DEK for the current user's operation.
@@ -101,6 +104,8 @@ def generate_user_id(email: str, hmac_key: bytes) -> str:
         raise TypeError("Email must be a string.")
     if not isinstance(hmac_key, bytes):
         raise TypeError("HMAC key must be bytes.")
+    if not hmac_key:
+        raise RuntimeError("TPAI_LOCAL_HMAC_KEY not set — cannot generate user IDs")
     return hmac.new(hmac_key, email.lower().encode("utf-8"), hashlib.sha256).hexdigest()
 
 
