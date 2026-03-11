@@ -155,6 +155,9 @@ def _traverse_and_decrypt(chat_obj: Chat):
                 log.debug("Decrypting chat content")
                 try:
                     plaintext = encryption_utils.decrypt_message(ciphertext)
+                    # plaintext == ciphertext reliably detects silent decryption failure:
+                    # Fernet ciphertext is base64-encoded binary (gAAA...) that will never
+                    # equal the original plaintext content.
                     if plaintext == ciphertext and ciphertext:
                         # decrypt_message returned original data (silent failure)
                         log.error("DECRYPTION FAILED for chat message: returned original ciphertext")
@@ -182,6 +185,7 @@ def _traverse_and_decrypt(chat_obj: Chat):
                 log.debug("Decrypting history content")
                 try:
                     plaintext = encryption_utils.decrypt_message(ciphertext)
+                    # See comment above: Fernet ciphertext never equals plaintext
                     if plaintext == ciphertext and ciphertext:
                         log.error(f"DECRYPTION FAILED for history message {msg_id}: returned original ciphertext")
                         # Preserve the encrypted dict as-is
