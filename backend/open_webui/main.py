@@ -1434,6 +1434,7 @@ async def chat_completion(
         )
 
     except Exception as e:
+        log.warning(f"[TPAI-DIAG] Error processing chat payload: {e}")
         log.debug(f"Error processing chat payload: {e}")
         if metadata.get("chat_id") and metadata.get("message_id"):
             # Update the chat message with the error
@@ -1451,12 +1452,15 @@ async def chat_completion(
         )
 
     try:
+        log.warning(f"[TPAI-DIAG] Calling chat_completion_handler: model={form_data.get('model')} user={user.id} role={user.role}")
         response = await chat_completion_handler(request, form_data, user)
+        log.warning(f"[TPAI-DIAG] chat_completion_handler returned: type={type(response).__name__}")
 
         return await process_chat_response(
             request, response, form_data, user, metadata, model, events, tasks
         )
     except Exception as e:
+        log.warning(f"[TPAI-DIAG] Error in chat completion: {e}")
         log.debug(f"Error in chat completion: {e}")
         if metadata.get("chat_id") and metadata.get("message_id"):
             # Update the chat message with the error

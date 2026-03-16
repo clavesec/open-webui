@@ -8,6 +8,7 @@ Create Date: 2024-12-23 03:00:00.000000
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 revision = "7826ab40b532"
 down_revision = "57c599a3cb57"
@@ -16,10 +17,15 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column(
-        "file",
-        sa.Column("access_control", sa.JSON(), nullable=True),
-    )
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    existing_columns = {col["name"] for col in inspector.get_columns("file")}
+
+    if "access_control" not in existing_columns:
+        op.add_column(
+            "file",
+            sa.Column("access_control", sa.JSON(), nullable=True),
+        )
 
 
 def downgrade():

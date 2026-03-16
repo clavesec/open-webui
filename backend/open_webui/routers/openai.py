@@ -828,6 +828,8 @@ async def generate_chat_completion(
 
     payload = json.dumps(payload)
 
+    log.warning(f"[TPAI-DIAG] chat/completions → URL={request_url} model={form_data.get('model')} user={user.id} role={user.role} stream={form_data.get('stream')}")
+
     r = None
     session = None
     streaming = False
@@ -845,6 +847,8 @@ async def generate_chat_completion(
             headers=headers,
             ssl=AIOHTTP_CLIENT_SESSION_SSL,
         )
+
+        log.warning(f"[TPAI-DIAG] BAG response: status={r.status} content_type={r.headers.get('Content-Type', 'N/A')}")
 
         # Check if response is SSE
         if "text/event-stream" in r.headers.get("Content-Type", ""):
@@ -864,10 +868,11 @@ async def generate_chat_completion(
                 log.error(e)
                 response = await r.text()
 
+            log.warning(f"[TPAI-DIAG] BAG non-stream response: {str(response)[:500]}")
             r.raise_for_status()
             return response
     except Exception as e:
-        log.exception(e)
+        log.exception(f"[TPAI-DIAG] chat/completions exception: {e}")
 
         detail = None
         if isinstance(response, dict):

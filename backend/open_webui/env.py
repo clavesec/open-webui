@@ -7,6 +7,7 @@ import sys
 import shutil
 from uuid import uuid4
 from pathlib import Path
+from urllib.parse import quote
 
 import markdown
 from bs4 import BeautifulSoup
@@ -262,7 +263,35 @@ if os.path.exists(f"{DATA_DIR}/ollama.db"):
 else:
     pass
 
-DATABASE_URL = os.environ.get("DATABASE_URL", f"sqlite:///{DATA_DIR}/webui.db")
+
+def _parse_json_database_url(db_url: str) -> str:
+    """Parse JSON-formatted DATABASE_URL from AWS Secrets Manager."""
+    if db_url.startswith(("postgres://", "postgresql://", "sqlite://")):
+        return db_url
+
+    try:
+        creds = json.loads(db_url)
+        username = creds.get("username", "")
+        password = creds.get("password", "")
+        host = creds.get("host", "localhost")
+        port = creds.get("port", 5432)
+        dbname = creds.get("dbname", creds.get("database", "postgres"))
+
+        safe_user = quote(str(username), safe="")
+        safe_pass = quote(str(password), safe="")
+
+        url = f"postgresql://{safe_user}:{safe_pass}@{host}:{port}/{dbname}"
+        log.info("Parsed JSON DATABASE_URL from Secrets Manager format")
+        return url
+    except (json.JSONDecodeError, TypeError, KeyError) as e:
+        log.debug(f"DATABASE_URL is not JSON format: {e}")
+        return db_url
+
+
+_raw_database_url = os.environ.get("DATABASE_URL", f"sqlite:///{DATA_DIR}/webui.db")
+
+# Parse JSON format if from AWS Secrets Manager
+DATABASE_URL = _parse_json_database_url(_raw_database_url)
 
 # Replace the postgres:// with postgresql://
 if "postgres://" in DATABASE_URL:

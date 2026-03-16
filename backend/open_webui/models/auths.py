@@ -30,15 +30,17 @@ class Auth(Base):
     # The 'id' of the Auth record now corresponds to the derived UserID from the User table.
     id = Column(String, primary_key=True)
 
-    email = Column(String)  # unused for SaaS; Enterprise may use it
-    password = Column(Text)  # unused for SaaS & Enterprise
+    email = Column(String, nullable=True)  # NOW NULLABLE (unused for billing-enrolled users)
+    email_hmac = Column(String(255), nullable=True)  # HMAC of email (for billing enrollment)
+    password = Column(Text, nullable=True)  # NOW NULLABLE (billing-enrolled users have NULL password)
     active = Column(Boolean)
 
 
 class AuthModel(BaseModel):
     id: str  # Corresponds to UserID
-    email: str
-    password: str
+    email: Optional[str] = None  # NOW OPTIONAL (for billing-enrolled users)
+    email_hmac: Optional[str] = None  # HMAC of email (for billing enrollment)
+    password: Optional[str] = None  # NOW OPTIONAL (billing-enrolled users have NULL password)
     active: bool = True
 
 
@@ -58,7 +60,7 @@ class ApiKey(BaseModel):
 
 class UserResponse(BaseModel):
     id: str
-    email: str
+    email: Optional[str] = None  # Optional for billing-enrolled users (no PII stored)
     name: str
     role: str
     profile_image_url: str
@@ -101,6 +103,25 @@ class SignupForm(BaseModel):
 
 class AddUserForm(SignupForm):
     role: Optional[str] = "pending"
+
+
+class AddByTPAIHmacForm(BaseModel):
+    """Form for billing enrollment endpoint (called by consumer Lambda)"""
+    user_id: str  # email_hmac (also user.id)
+    email_hmac: str  # must match user_id
+    password: None  # must be None
+    name: str  # "User"
+    role: str  # "user"
+    billing_customer_id: str  # stripe customer ID
+
+
+class AddByTPAIHmacResponse(BaseModel):
+    """Response for billing enrollment endpoint"""
+    id: str
+    email_hmac: str
+    billing_customer_id: str
+    role: str
+    message: str = "User created successfully"
 
 
 class AuthsTable:
@@ -210,6 +231,80 @@ class AuthsTable:
                     f"User creation failed for email {email} after auth entry preparation. Rolling back."
                 )
                 db.rollback()  # Rollback if Users.insert_new_user failed.
+                return None
+
+    def insert_billing_enrolled_user(
+        self,
+        user_id: str,
+        email_hmac: str,
+        billing_customer_id: str,
+        name: str = "User",
+        role: str = "user",
+    ) -> Optional[UserModel]:
+        """
+        Create user via billing enrollment (TPAI flow).
+        - Password is NULL (billing-auth marker)
+        - Email is NULL (no plain text)
+        - Idempotent (checks existing by hmac/billing_id)
+        """
+        with get_db() as db:
+            log.info(f"Attempting to insert billing-enrolled user: {user_id}")
+
+            # Check if user already exists by email_hmac
+            existing_user_by_hmac = Users.get_user_by_email_hmac(email_hmac)
+            if existing_user_by_hmac:
+                log.info(f"User with email_hmac {email_hmac} already exists (idempotent)")
+                return existing_user_by_hmac
+
+            # Check if user already exists by billing_customer_id
+            existing_user_by_billing = Users.get_user_by_billing_customer_id(billing_customer_id)
+            if existing_user_by_billing:
+                log.info(f"User with billing_customer_id {billing_customer_id} already exists (idempotent)")
+                return existing_user_by_billing
+
+            # Create Auth record with NULL password
+            auth_entry_pydantic = AuthModel(
+                id=user_id,
+                email=None,  # No plain text email
+                email_hmac=email_hmac,
+                password=None,  # NULL password (billing-auth marker)
+                active=True,
+            )
+            db_auth_entry = Auth(**auth_entry_pydantic.model_dump())
+            db.add(db_auth_entry)
+            log.info(f"Auth entry prepared for billing-enrolled user: {user_id}")
+
+            # Provision per-user encryption — same envelope as insert_new_auth()
+            # user_id IS the email_hmac; no raw email involved — no-PII preserved
+            salt_val = encryption_utils.generate_salt()
+            user_key_val = encryption_utils.derive_key_from_user_id(user_id, salt_val)
+            dek_plaintext = encryption_utils.generate_dek()
+            user_encrypted_dek_val = encryption_utils.encrypt_dek(dek_plaintext, user_key_val)
+
+            # Create User record
+            user = Users.insert_new_user(
+                id=user_id,
+                name=name,
+                email=None,  # No plain text email
+                email_hmac=email_hmac,
+                billing_customer_id=billing_customer_id,
+                profile_image_url="/user.png",
+                role=role,
+                oauth_sub=None,
+                # Encryption fields provisioned above
+                salt=salt_val,
+                user_key=user_key_val,
+                user_encrypted_dek=user_encrypted_dek_val,
+                kms_encrypted_dek=None,
+            )
+
+            if user:
+                log.info(f"Billing-enrolled user successfully created: {user.id}")
+                db.commit()
+                return user
+            else:
+                log.error(f"Billing-enrolled user creation failed for {user_id}. Rolling back.")
+                db.rollback()
                 return None
 
     def authenticate_user(self, email: str, password: str) -> Optional[UserModel]:

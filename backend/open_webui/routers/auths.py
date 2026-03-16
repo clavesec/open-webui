@@ -7,6 +7,8 @@ from aiohttp import ClientSession
 
 from open_webui.models.auths import (
     AddUserForm,
+    AddByTPAIHmacForm,
+    AddByTPAIHmacResponse,
     ApiKey,
     Auths,
     Token,
@@ -759,6 +761,82 @@ async def add_user(form_data: AddUserForm, user=Depends(get_admin_user)):
         log.error(f"Add user error: {str(err)}")
         raise HTTPException(
             500, detail="An internal error occurred while adding the user."
+        )
+
+
+############################
+# AddUserByTPAIHmac
+############################
+
+
+@router.post("/add-by-tpai-hmac", response_model=AddByTPAIHmacResponse)
+async def add_user_by_tpai_hmac(
+    form_data: AddByTPAIHmacForm,
+    user=Depends(get_admin_user)
+):
+    """
+    Billing enrollment endpoint (called by consumer Lambda).
+    Creates users without email/password credentials.
+    """
+
+    # Validation
+    if form_data.user_id != form_data.email_hmac:
+        raise HTTPException(400, detail="user_id must equal email_hmac")
+    if form_data.password is not None:
+        raise HTTPException(400, detail="password must be None")
+    if form_data.role not in ["user", "pending"]:
+        raise HTTPException(400, detail="invalid role")
+
+    # Check idempotency (user exists?)
+    existing_user_by_hmac = Users.get_user_by_email_hmac(form_data.email_hmac)
+    if existing_user_by_hmac:
+        log.info(f"User with email_hmac {form_data.email_hmac} already exists (idempotent)")
+        return AddByTPAIHmacResponse(
+            id=existing_user_by_hmac.id,
+            email_hmac=existing_user_by_hmac.email_hmac,
+            billing_customer_id=existing_user_by_hmac.billing_customer_id,
+            role=existing_user_by_hmac.role,
+            message="User already exists (idempotent success)"
+        )
+
+    existing_user_by_billing = Users.get_user_by_billing_customer_id(
+        form_data.billing_customer_id
+    )
+    if existing_user_by_billing:
+        log.info(f"User with billing_customer_id {form_data.billing_customer_id} already exists (idempotent)")
+        return AddByTPAIHmacResponse(
+            id=existing_user_by_billing.id,
+            email_hmac=existing_user_by_billing.email_hmac,
+            billing_customer_id=existing_user_by_billing.billing_customer_id,
+            role=existing_user_by_billing.role,
+            message="User already exists (idempotent success)"
+        )
+
+    # Create new user
+    try:
+        user = Auths.insert_billing_enrolled_user(
+            user_id=form_data.user_id,
+            email_hmac=form_data.email_hmac,
+            billing_customer_id=form_data.billing_customer_id,
+            name=form_data.name,
+            role=form_data.role,
+        )
+
+        if user:
+            log.info(f"Billing-enrolled user created successfully: {user.id}")
+            return AddByTPAIHmacResponse(
+                id=user.id,
+                email_hmac=user.email_hmac,
+                billing_customer_id=user.billing_customer_id,
+                role=user.role,
+                message="User created successfully"
+            )
+        else:
+            raise HTTPException(500, detail=ERROR_MESSAGES.CREATE_USER_ERROR)
+    except Exception as err:
+        log.error(f"Billing enrollment error: {str(err)}")
+        raise HTTPException(
+            500, detail="An internal error occurred during billing enrollment."
         )
 
 

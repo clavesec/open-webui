@@ -8,6 +8,7 @@ Create Date: 2024-10-20 17:02:35.241684
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 # Revision identifiers, used by Alembic.
 revision = "af906e964978"
@@ -17,6 +18,13 @@ depends_on = None
 
 
 def upgrade():
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    existing_tables = set(inspector.get_table_names())
+
+    if "feedback" in existing_tables:
+        return
+
     # ### Create feedback table ###
     op.create_table(
         "feedback",

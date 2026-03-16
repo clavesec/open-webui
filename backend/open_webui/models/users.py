@@ -25,7 +25,10 @@ class User(Base):
     # Email is still stored and used for login, and as the source for UserID generation.
     # It must be unique as it's the basis for the unique UserID.
     # WRONG - I will ultimately no use this for SaaS; may be used for Enterprise
-    email = Column(String, unique=True, index=True, nullable=False)
+    # NOW NULLABLE to support billing-enrolled users (who have email_hmac instead)
+    email = Column(String, unique=True, index=True, nullable=True)
+    email_hmac = Column(String(255), nullable=True, index=True)  # HMAC of email (for billing enrollment)
+    billing_customer_id = Column(String(255), nullable=True, unique=True, index=True)  # Stripe customer ID
     role = Column(String)
     profile_image_url = Column(Text)
 
@@ -76,7 +79,9 @@ class UserModel(BaseModel):
 
     id: str  # Derived UserID (HMAC of email)
     name: str
-    email: str
+    email: Optional[str] = None  # NOW OPTIONAL (for billing-enrolled users)
+    email_hmac: Optional[str] = None  # HMAC of email (for billing enrollment)
+    billing_customer_id: Optional[str] = None  # Stripe customer ID
     role: str = "pending"
     profile_image_url: str
 
@@ -121,7 +126,7 @@ class UserListResponse(BaseModel):
 class UserResponse(BaseModel):
     id: str
     name: str
-    email: str
+    email: Optional[str] = None  # Optional for billing-enrolled users (no PII stored)
     role: str
     profile_image_url: str
 
@@ -151,7 +156,9 @@ class UsersTable:
         self,
         id: str,  # This is now the derived UserID (HMAC of email)
         name: str,
-        email: str,
+        email: Optional[str] = None,  # NOW OPTIONAL (for billing-enrolled users)
+        email_hmac: Optional[str] = None,  # HMAC of email (for billing enrollment)
+        billing_customer_id: Optional[str] = None,  # Stripe customer ID
         profile_image_url: str = "/user.png",
         role: str = "pending",
         oauth_sub: Optional[str] = None,
@@ -170,6 +177,8 @@ class UsersTable:
                 "id": id,
                 "name": name,
                 "email": email,
+                "email_hmac": email_hmac,  # NEW
+                "billing_customer_id": billing_customer_id,  # NEW
                 "role": role,
                 "profile_image_url": profile_image_url,
                 "last_active_at": int(time.time()),
@@ -227,6 +236,24 @@ class UsersTable:
         try:
             with get_db() as db:
                 user = db.query(User).filter_by(oauth_sub=sub).first()
+                return UserModel.model_validate(user) if user else None
+        except Exception:
+            return None
+
+    def get_user_by_email_hmac(self, email_hmac: str) -> Optional[UserModel]:
+        """Retrieve user by email HMAC (for billing enrollment)"""
+        try:
+            with get_db() as db:
+                user = db.query(User).filter_by(email_hmac=email_hmac).first()
+                return UserModel.model_validate(user) if user else None
+        except Exception:
+            return None
+
+    def get_user_by_billing_customer_id(self, billing_customer_id: str) -> Optional[UserModel]:
+        """Retrieve user by Stripe billing customer ID"""
+        try:
+            with get_db() as db:
+                user = db.query(User).filter_by(billing_customer_id=billing_customer_id).first()
                 return UserModel.model_validate(user) if user else None
         except Exception:
             return None

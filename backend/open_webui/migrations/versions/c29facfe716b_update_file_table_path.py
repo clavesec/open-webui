@@ -10,7 +10,7 @@ from alembic import op
 import sqlalchemy as sa
 import json
 from sqlalchemy.sql import table, column
-from sqlalchemy import String, Text, JSON, and_
+from sqlalchemy import String, Text, JSON, and_, inspect
 
 
 revision = "c29facfe716b"
@@ -20,8 +20,13 @@ depends_on = None
 
 
 def upgrade():
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    existing_columns = {col["name"] for col in inspector.get_columns("file")}
+
     # 1. Add the `path` column to the "file" table.
-    op.add_column("file", sa.Column("path", sa.Text(), nullable=True))
+    if "path" not in existing_columns:
+        op.add_column("file", sa.Column("path", sa.Text(), nullable=True))
 
     # 2. Convert the `meta` column from Text/JSONField to `JSON()`
     # Use Alembic's default batch_op for dialect compatibility.
