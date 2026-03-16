@@ -5,7 +5,9 @@ from fastapi import FastAPI
 
 @contextmanager
 def mock_webui_user(**kwargs):
-    from open_webui.main import app
+    # Must use same import path as get_fast_api_client (from main import app)
+    # to get the same app object; open_webui.main vs main are different sys.modules entries
+    from main import app
 
     with mock_user(app, **kwargs):
         yield

@@ -710,8 +710,8 @@ class TestEncryptionE2E(AbstractPostgresTest):
         with get_db() as db:
             db.execute(
                 text(
-                    "INSERT INTO chat (id, user_id, title, chat, created_at, updated_at) "
-                    "VALUES (:id, :uid, :title, cast(:chat AS json), :ts, :ts)"
+                    "INSERT INTO chat (id, user_id, title, chat, created_at, updated_at, archived, pinned) "
+                    "VALUES (:id, :uid, :title, cast(:chat AS json), :ts, :ts, false, false)"
                 ),
                 {
                     "id": chat_id,
