@@ -1,6 +1,8 @@
+import atexit
 import logging
 import os
 import time
+import uuid
 
 import docker
 import pytest
@@ -54,21 +56,22 @@ class AbstractIntegrationTest:
 
 
 class AbstractPostgresTest(AbstractIntegrationTest):
-    DOCKER_CONTAINER_NAME = "postgres-test-container-will-get-deleted"
+    DOCKER_CONTAINER_NAME: str  # Set dynamically in setup_class
     docker_client: DockerClient
+    container = None  # Docker container object
 
     @classmethod
-    def _create_db_url(cls, env_vars_postgres: dict) -> str:
+    def _create_db_url(cls, env_vars_postgres: dict, port: int) -> str:
         host = get_docker_ip()
         user = env_vars_postgres["POSTGRES_USER"]
         pw = env_vars_postgres["POSTGRES_PASSWORD"]
-        port = 8081
         db = env_vars_postgres["POSTGRES_DB"]
         return f"postgresql://{user}:{pw}@{host}:{port}/{db}"
 
     @classmethod
     def setup_class(cls):
         super().setup_class()
+        cls.DOCKER_CONTAINER_NAME = f"postgres-test-{os.getpid()}-{uuid.uuid4().hex[:8]}"
         try:
             env_vars_postgres = {
                 "POSTGRES_USER": "user",
@@ -76,17 +79,27 @@ class AbstractPostgresTest(AbstractIntegrationTest):
                 "POSTGRES_DB": "openwebui",
             }
             cls.docker_client = docker.from_env()
-            cls.docker_client.containers.run(
+            cls.container = cls.docker_client.containers.run(
                 "postgres:16.2",
                 detach=True,
                 environment=env_vars_postgres,
                 name=cls.DOCKER_CONTAINER_NAME,
-                ports={5432: ("0.0.0.0", 8081)},
+                ports={5432: None},
                 command="postgres -c log_statement=all",
             )
-            time.sleep(0.5)
 
-            database_url = cls._create_db_url(env_vars_postgres)
+            cls.container.reload()
+            assigned_port = int(cls.container.ports["5432/tcp"][0]["HostPort"])
+
+            def _cleanup():
+                try:
+                    cls.docker_client.containers.get(cls.DOCKER_CONTAINER_NAME).remove(force=True)
+                except Exception:
+                    pass  # Already removed by teardown_class
+
+            atexit.register(_cleanup)
+
+            database_url = cls._create_db_url(env_vars_postgres, assigned_port)
             os.environ["DATABASE_URL"] = database_url
             retries = 10
             db = None
@@ -136,7 +149,8 @@ class AbstractPostgresTest(AbstractIntegrationTest):
     @classmethod
     def teardown_class(cls) -> None:
         super().teardown_class()
-        cls.docker_client.containers.get(cls.DOCKER_CONTAINER_NAME).remove(force=True)
+        if cls.container:
+            cls.container.remove(force=True)
 
     def teardown_method(self):
         from open_webui.internal.db import Session
@@ -144,18 +158,9 @@ class AbstractPostgresTest(AbstractIntegrationTest):
         # rollback everything not yet committed
         Session.commit()
 
-        # truncate all tables
-        tables = [
-            "auth",
-            "chat",
-            "chatidtag",
-            "document",
-            "memory",
-            "model",
-            "prompt",
-            "tag",
-            '"user"',
-        ]
+        # Dynamic table truncation — handles new tables automatically
+        result = Session.execute(text("SELECT tablename FROM pg_tables WHERE schemaname='public'"))
+        tables = [row[0] for row in result.fetchall()]
         for table in tables:
-            Session.execute(text(f"TRUNCATE TABLE {table}"))
+            Session.execute(text(f'TRUNCATE TABLE "{table}" CASCADE'))
         Session.commit()
