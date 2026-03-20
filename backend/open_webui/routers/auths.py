@@ -31,6 +31,7 @@ from open_webui.env import (
     WEBUI_AUTH_TRUSTED_GROUPS_HEADER,
     WEBUI_AUTH_COOKIE_SAME_SITE,
     WEBUI_AUTH_COOKIE_SECURE,
+    WEBUI_AUTH_COOKIE_SKIP,
     WEBUI_AUTH_SIGNOUT_REDIRECT_URL,
     SRC_LOG_LEVELS,
 )
@@ -96,19 +97,20 @@ async def get_session_user(
                 detail=ERROR_MESSAGES.INVALID_TOKEN,
             )
 
-        # Set the cookie token
-        response.set_cookie(
-            key="token",
-            value=token,
-            expires=(
-                datetime.datetime.fromtimestamp(expires_at, datetime.timezone.utc)
-                if expires_at
-                else None
-            ),
-            httponly=True,  # Ensures the cookie is not accessible via JavaScript
-            samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
-            secure=WEBUI_AUTH_COOKIE_SECURE,
-        )
+        # Set the cookie token (skip when external auth gateway manages cookies)
+        if not WEBUI_AUTH_COOKIE_SKIP:
+            response.set_cookie(
+                key="token",
+                value=token,
+                expires=(
+                    datetime.datetime.fromtimestamp(expires_at, datetime.timezone.utc)
+                    if expires_at
+                    else None
+                ),
+                httponly=True,  # Ensures the cookie is not accessible via JavaScript
+                samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
+                secure=WEBUI_AUTH_COOKIE_SECURE,
+            )
 
     user_permissions = get_permissions(
         user.id, request.app.state.config.USER_PERMISSIONS
@@ -394,21 +396,22 @@ async def ldap_auth(request: Request, response: Response, form_data: LdapForm):
                     expires_delta=expires_delta,
                 )
 
-                # Set the cookie token
-                response.set_cookie(
-                    key="token",
-                    value=token,
-                    expires=(
-                        datetime.datetime.fromtimestamp(
-                            expires_at, datetime.timezone.utc
-                        )
-                        if expires_at
-                        else None
-                    ),
-                    httponly=True,  # Ensures the cookie is not accessible via JavaScript
-                    samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
-                    secure=WEBUI_AUTH_COOKIE_SECURE,
-                )
+                # Set the cookie token (skip when external auth gateway manages cookies)
+                if not WEBUI_AUTH_COOKIE_SKIP:
+                    response.set_cookie(
+                        key="token",
+                        value=token,
+                        expires=(
+                            datetime.datetime.fromtimestamp(
+                                expires_at, datetime.timezone.utc
+                            )
+                            if expires_at
+                            else None
+                        ),
+                        httponly=True,  # Ensures the cookie is not accessible via JavaScript
+                        samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
+                        secure=WEBUI_AUTH_COOKIE_SECURE,
+                    )
 
                 user_permissions = get_permissions(
                     user.id, request.app.state.config.USER_PERMISSIONS
@@ -522,15 +525,16 @@ async def signin(request: Request, response: Response, form_data: SigninForm):
             else None
         )
 
-        # Set the cookie token
-        response.set_cookie(
-            key="token",
-            value=token,
-            expires=datetime_expires_at,
-            httponly=True,  # Ensures the cookie is not accessible via JavaScript
-            samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
-            secure=WEBUI_AUTH_COOKIE_SECURE,
-        )
+        # Set the cookie token (skip when external auth gateway manages cookies)
+        if not WEBUI_AUTH_COOKIE_SKIP:
+            response.set_cookie(
+                key="token",
+                value=token,
+                expires=datetime_expires_at,
+                httponly=True,  # Ensures the cookie is not accessible via JavaScript
+                samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
+                secure=WEBUI_AUTH_COOKIE_SECURE,
+            )
 
         user_permissions = get_permissions(
             user.id, request.app.state.config.USER_PERMISSIONS
@@ -620,15 +624,16 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
                 else None
             )
 
-            # Set the cookie token
-            response.set_cookie(
-                key="token",
-                value=token,
-                expires=datetime_expires_at,
-                httponly=True,  # Ensures the cookie is not accessible via JavaScript
-                samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
-                secure=WEBUI_AUTH_COOKIE_SECURE,
-            )
+            # Set the cookie token (skip when external auth gateway manages cookies)
+            if not WEBUI_AUTH_COOKIE_SKIP:
+                response.set_cookie(
+                    key="token",
+                    value=token,
+                    expires=datetime_expires_at,
+                    httponly=True,  # Ensures the cookie is not accessible via JavaScript
+                    samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
+                    secure=WEBUI_AUTH_COOKIE_SECURE,
+                )
 
             if request.app.state.config.WEBHOOK_URL:
                 post_webhook(

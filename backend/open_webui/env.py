@@ -434,6 +434,13 @@ WEBUI_AUTH_COOKIE_SECURE = (
     == "true"
 )
 
+# When True, an external auth gateway (e.g. TPAI auth-server) manages the
+# "token" cookie. OWUI skips setting its own token cookie to avoid a
+# duplicate HttpOnly cookie that shadows the gateway's JS-readable one.
+WEBUI_AUTH_COOKIE_SKIP = (
+    os.environ.get("WEBUI_AUTH_COOKIE_SKIP", "false").lower() == "true"
+)
+
 if WEBUI_AUTH and WEBUI_SECRET_KEY == "":
     raise ValueError(ERROR_MESSAGES.ENV_VAR_NOT_FOUND)
 
