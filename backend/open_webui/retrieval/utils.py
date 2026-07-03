@@ -782,7 +782,7 @@ def generate_ollama_batch_embeddings(
                         "X-OpenWebUI-User-Email": user.email or "",
                         "X-OpenWebUI-User-Role": user.role,
                     }
-                    if ENABLE_FORWARD_USER_INFO_HEADERS
+                    if ENABLE_FORWARD_USER_INFO_HEADERS and user
                     else {}
                 ),
             },

@@ -768,7 +768,7 @@ async def generate_chat_completion(
         payload["user"] = {
             "name": user.name,
             "id": user.id,
-            "email": user.email,
+            "email": user.email or "",
             "role": user.role,
         }
 

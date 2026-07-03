@@ -786,6 +786,13 @@ async def add_user_by_tpai_hmac(
     # Validation
     if form_data.user_id != form_data.email_hmac:
         raise HTTPException(400, detail="user_id must equal email_hmac")
+    # The user_id is forwarded as X-OpenWebUI-User-Id and is the gateway's
+    # identity-HMAC input and mint-subject key (exact match against the
+    # session table). Reject anything but canonical lowercase hex so
+    # whitespace/case anomalies can never be enrolled and later stranded by
+    # the gateway's header normalization.
+    if not re.fullmatch(r"[0-9a-f]{64}", form_data.user_id):
+        raise HTTPException(400, detail="user_id must be 64 lowercase hex chars")
     if form_data.password is not None:
         raise HTTPException(400, detail="password must be None")
     if form_data.role not in ["user", "pending"]:
