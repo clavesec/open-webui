@@ -191,8 +191,6 @@ async def generate_chat_completion(
 
     model = models[model_id]
 
-    log.warning(f"[TPAI-DIAG] generate_chat_completion: model_id={model_id} owned_by={model.get('owned_by')} pipe={model.get('pipe')} direct={getattr(request.state, 'direct', False)} bypass_filter={bypass_filter} user_role={user.role}")
-
     if getattr(request.state, "direct", False):
         return await generate_direct_chat_completion(
             request, form_data, user=user, models=models
@@ -203,7 +201,9 @@ async def generate_chat_completion(
             try:
                 check_model_access(user, model)
             except Exception as e:
-                log.warning(f"[TPAI-DIAG] Model access denied: model_id={model_id} user={user.id} error={e}")
+                log.warning(
+                    f"Model access denied: model_id={model_id} user={user.id} ({type(e).__name__})"
+                )
                 raise e
 
         if model.get("owned_by") == "arena":
