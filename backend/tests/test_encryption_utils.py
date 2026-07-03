@@ -26,6 +26,7 @@ from open_webui.utils.encryption_utils import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_user_dek():
     """Generate a DEK and matching user key for tests."""
     dek = generate_dek()
@@ -38,6 +39,7 @@ def _make_user_dek():
 # ---------------------------------------------------------------------------
 # get_key / no-DEK passthrough
 # ---------------------------------------------------------------------------
+
 
 class TestGetKey:
     def test_returns_none_when_no_context(self):
@@ -74,6 +76,7 @@ class TestNoDekPassthrough:
 # PBKDF2 determinism
 # ---------------------------------------------------------------------------
 
+
 class TestDeriveKey:
     def test_deterministic(self):
         salt = generate_salt()
@@ -97,6 +100,7 @@ class TestDeriveKey:
 # DEK encrypt / decrypt round-trip
 # ---------------------------------------------------------------------------
 
+
 class TestDekRoundTrip:
     def test_round_trip(self):
         dek, user_key, encrypted_dek = _make_user_dek()
@@ -112,6 +116,7 @@ class TestDekRoundTrip:
 # ---------------------------------------------------------------------------
 # Message encrypt / decrypt with DEK
 # ---------------------------------------------------------------------------
+
 
 class TestMessageEncryption:
     def test_round_trip(self):
@@ -153,6 +158,7 @@ class TestMessageEncryption:
 # ---------------------------------------------------------------------------
 # generate_user_id
 # ---------------------------------------------------------------------------
+
 
 class TestGenerateUserId:
     def test_deterministic(self):

@@ -130,7 +130,9 @@ def _augment_postgres_url_with_iam_and_ssl(db_url: str) -> str:
 
     # Debug SSL environment variables
     log.debug(f"SSL ENV: PG_SSLMODE={PG_SSLMODE}, PG_SSLROOTCERT={PG_SSLROOTCERT}")
-    log.debug(f"IAM ENV: ENABLE_AWS_RDS_IAM={ENABLE_AWS_RDS_IAM}, AWS_REGION={AWS_REGION}")
+    log.debug(
+        f"IAM ENV: ENABLE_AWS_RDS_IAM={ENABLE_AWS_RDS_IAM}, AWS_REGION={AWS_REGION}"
+    )
 
     try:
         from urllib.parse import urlparse, quote
@@ -193,7 +195,9 @@ def register_connection(db_url):
         Exception: If connection fails
     """
     # SECURITY: Only log URL prefix to avoid exposing credentials
-    log.info(f"DB_CONNECT: Starting register_connection with URL prefix: {db_url[:50]}...")
+    log.info(
+        f"DB_CONNECT: Starting register_connection with URL prefix: {db_url[:50]}..."
+    )
 
     # Parse JSON format if coming from AWS Secrets Manager
     parsed_url = _parse_json_database_url(db_url)

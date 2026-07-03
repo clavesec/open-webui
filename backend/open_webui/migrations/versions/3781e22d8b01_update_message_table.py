@@ -20,8 +20,16 @@ def upgrade():
     conn = op.get_bind()
     inspector = inspect(conn)
     existing_tables = set(inspector.get_table_names())
-    channel_columns = {col["name"] for col in inspector.get_columns("channel")} if "channel" in existing_tables else set()
-    message_columns = {col["name"] for col in inspector.get_columns("message")} if "message" in existing_tables else set()
+    channel_columns = (
+        {col["name"] for col in inspector.get_columns("channel")}
+        if "channel" in existing_tables
+        else set()
+    )
+    message_columns = (
+        {col["name"] for col in inspector.get_columns("message")}
+        if "message" in existing_tables
+        else set()
+    )
 
     # Add 'type' column to the 'channel' table
     if "type" not in channel_columns:

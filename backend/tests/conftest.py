@@ -20,7 +20,9 @@ try:
     import sqlalchemy  # noqa: F401
 except ImportError:
     for sa_mod in [
-        "sqlalchemy", "sqlalchemy.orm", "sqlalchemy.orm.attributes",
+        "sqlalchemy",
+        "sqlalchemy.orm",
+        "sqlalchemy.orm.attributes",
         "sqlalchemy.orm.session",
     ]:
         sys.modules[sa_mod] = MagicMock()

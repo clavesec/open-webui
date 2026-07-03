@@ -43,7 +43,9 @@ class TestParseJsonDatabaseUrl:
 
     def test_json_missing_port_uses_default(self):
         """Missing port should default to 5432."""
-        json_url = '{"username":"user","password":"pass","host":"localhost","dbname":"db"}'
+        json_url = (
+            '{"username":"user","password":"pass","host":"localhost","dbname":"db"}'
+        )
         result = _parse_json_database_url(json_url)
         assert ":5432/" in result
 
@@ -61,7 +63,9 @@ class TestParseJsonDatabaseUrl:
 
     def test_json_missing_dbname_uses_default(self):
         """Missing dbname should default to postgres."""
-        json_url = '{"username":"user","password":"pass","host":"localhost","port":5432}'
+        json_url = (
+            '{"username":"user","password":"pass","host":"localhost","port":5432}'
+        )
         result = _parse_json_database_url(json_url)
         assert result.endswith("/postgres")
 
@@ -93,7 +97,9 @@ class TestParseJsonDatabaseUrl:
 
     def test_json_with_empty_credentials(self):
         """JSON with empty username/password should work."""
-        json_url = '{"username":"","password":"","host":"localhost","port":5432,"dbname":"db"}'
+        json_url = (
+            '{"username":"","password":"","host":"localhost","port":5432,"dbname":"db"}'
+        )
         result = _parse_json_database_url(json_url)
         assert result == "postgresql://:@localhost:5432/db"
 

@@ -71,7 +71,9 @@ class AbstractPostgresTest(AbstractIntegrationTest):
     @classmethod
     def setup_class(cls):
         super().setup_class()
-        cls.DOCKER_CONTAINER_NAME = f"postgres-test-{os.getpid()}-{uuid.uuid4().hex[:8]}"
+        cls.DOCKER_CONTAINER_NAME = (
+            f"postgres-test-{os.getpid()}-{uuid.uuid4().hex[:8]}"
+        )
         try:
             env_vars_postgres = {
                 "POSTGRES_USER": "user",
@@ -93,7 +95,9 @@ class AbstractPostgresTest(AbstractIntegrationTest):
 
             def _cleanup():
                 try:
-                    cls.docker_client.containers.get(cls.DOCKER_CONTAINER_NAME).remove(force=True)
+                    cls.docker_client.containers.get(cls.DOCKER_CONTAINER_NAME).remove(
+                        force=True
+                    )
                 except Exception:
                     pass  # Already removed by teardown_class
 
@@ -159,7 +163,9 @@ class AbstractPostgresTest(AbstractIntegrationTest):
         Session.commit()
 
         # Dynamic table truncation — handles new tables automatically
-        result = Session.execute(text("SELECT tablename FROM pg_tables WHERE schemaname='public'"))
+        result = Session.execute(
+            text("SELECT tablename FROM pg_tables WHERE schemaname='public'")
+        )
         tables = [row[0] for row in result.fetchall()]
         for table in tables:
             Session.execute(text(f'TRUNCATE TABLE "{table}" CASCADE'))

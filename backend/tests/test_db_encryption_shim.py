@@ -26,6 +26,7 @@ from open_webui.models.db_encryption_shim import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_chat_obj(messages=None, history_messages=None):
     """Create a mock Chat object with the given messages structure."""
     chat = {}
@@ -53,6 +54,7 @@ def _with_dek(fn):
 # Encrypt on flush
 # ---------------------------------------------------------------------------
 
+
 class TestTraverseAndEncrypt:
 
     def test_encrypts_plaintext_messages(self):
@@ -65,6 +67,7 @@ class TestTraverseAndEncrypt:
 
         def do():
             _traverse_and_encrypt(obj)
+
         _with_dek(do)
 
         for msg in obj.chat["messages"]:
@@ -78,6 +81,7 @@ class TestTraverseAndEncrypt:
 
         def do():
             _traverse_and_encrypt(obj)
+
         _with_dek(do)
 
         # Should be unchanged
@@ -112,6 +116,7 @@ class TestTraverseAndEncrypt:
 
         def do():
             _traverse_and_encrypt(obj)
+
         _with_dek(do)
         # No exception — message is unchanged
         assert "content" not in obj.chat["messages"][0]
@@ -122,6 +127,7 @@ class TestTraverseAndEncrypt:
 
         def do():
             _traverse_and_encrypt(obj)
+
         _with_dek(do)
         assert obj.chat["messages"][0]["content"] is None
 
@@ -130,6 +136,7 @@ class TestTraverseAndEncrypt:
 
         def do():
             _traverse_and_encrypt(obj)
+
         _with_dek(do)
         assert obj.chat["messages"][0]["content"] == ""
 
@@ -142,6 +149,7 @@ class TestTraverseAndEncrypt:
 
         def do():
             _traverse_and_encrypt(obj)
+
         _with_dek(do)
 
         msg = obj.chat["history"]["messages"]["msg-1"]
@@ -154,6 +162,7 @@ class TestTraverseAndEncrypt:
 
         def do():
             _traverse_and_encrypt(obj)
+
         _with_dek(do)
         assert "content" not in obj.chat["history"]["messages"]["msg-1"]
 
@@ -162,13 +171,12 @@ class TestTraverseAndEncrypt:
 # Decrypt on load
 # ---------------------------------------------------------------------------
 
+
 class TestTraverseAndDecrypt:
 
     def test_decrypts_encrypted_messages(self):
         """Round-trip: encrypt then decrypt should recover plaintext."""
-        obj = _make_chat_obj(
-            messages=[{"role": "user", "content": "Hello world"}]
-        )
+        obj = _make_chat_obj(messages=[{"role": "user", "content": "Hello world"}])
 
         dek = generate_dek()
         token = current_user_dek_context.set(dek)
@@ -190,7 +198,9 @@ class TestTraverseAndDecrypt:
     def test_preserves_ciphertext_on_decrypt_failure(self):
         """On decrypt failure, the encrypted dict is preserved (not replaced with error string)."""
         encrypted_dict = {"ciphertext": "invalid-ciphertext-data", "is_encrypted": True}
-        obj = _make_chat_obj(messages=[{"role": "user", "content": copy.deepcopy(encrypted_dict)}])
+        obj = _make_chat_obj(
+            messages=[{"role": "user", "content": copy.deepcopy(encrypted_dict)}]
+        )
 
         # Use a DEK that won't match the ciphertext
         dek = generate_dek()
@@ -209,7 +219,9 @@ class TestTraverseAndDecrypt:
     def test_history_preserves_ciphertext_on_failure(self):
         encrypted_dict = {"ciphertext": "bad-data", "is_encrypted": True}
         obj = _make_chat_obj(
-            history_messages={"msg-1": {"role": "user", "content": copy.deepcopy(encrypted_dict)}}
+            history_messages={
+                "msg-1": {"role": "user", "content": copy.deepcopy(encrypted_dict)}
+            }
         )
 
         dek = generate_dek()

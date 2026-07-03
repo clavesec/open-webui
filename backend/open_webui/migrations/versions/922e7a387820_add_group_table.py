@@ -37,10 +37,26 @@ def upgrade():
         )
 
     # Get existing columns for each table
-    model_columns = {col["name"] for col in inspector.get_columns("model")} if "model" in existing_tables else set()
-    knowledge_columns = {col["name"] for col in inspector.get_columns("knowledge")} if "knowledge" in existing_tables else set()
-    prompt_columns = {col["name"] for col in inspector.get_columns("prompt")} if "prompt" in existing_tables else set()
-    tool_columns = {col["name"] for col in inspector.get_columns("tool")} if "tool" in existing_tables else set()
+    model_columns = (
+        {col["name"] for col in inspector.get_columns("model")}
+        if "model" in existing_tables
+        else set()
+    )
+    knowledge_columns = (
+        {col["name"] for col in inspector.get_columns("knowledge")}
+        if "knowledge" in existing_tables
+        else set()
+    )
+    prompt_columns = (
+        {col["name"] for col in inspector.get_columns("prompt")}
+        if "prompt" in existing_tables
+        else set()
+    )
+    tool_columns = (
+        {col["name"] for col in inspector.get_columns("tool")}
+        if "tool" in existing_tables
+        else set()
+    )
 
     # Add 'access_control' column to 'model' table
     if "access_control" not in model_columns:
