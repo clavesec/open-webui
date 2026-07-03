@@ -776,8 +776,7 @@ async def add_user(form_data: AddUserForm, user=Depends(get_admin_user)):
 
 @router.post("/add-by-tpai-hmac", response_model=AddByTPAIHmacResponse)
 async def add_user_by_tpai_hmac(
-    form_data: AddByTPAIHmacForm,
-    user=Depends(get_admin_user)
+    form_data: AddByTPAIHmacForm, user=Depends(get_admin_user)
 ):
     """
     Billing enrollment endpoint (called by consumer Lambda).
@@ -795,26 +794,30 @@ async def add_user_by_tpai_hmac(
     # Check idempotency (user exists?)
     existing_user_by_hmac = Users.get_user_by_email_hmac(form_data.email_hmac)
     if existing_user_by_hmac:
-        log.info(f"User with email_hmac {form_data.email_hmac} already exists (idempotent)")
+        log.info(
+            f"User with email_hmac {form_data.email_hmac} already exists (idempotent)"
+        )
         return AddByTPAIHmacResponse(
             id=existing_user_by_hmac.id,
             email_hmac=existing_user_by_hmac.email_hmac,
             billing_customer_id=existing_user_by_hmac.billing_customer_id,
             role=existing_user_by_hmac.role,
-            message="User already exists (idempotent success)"
+            message="User already exists (idempotent success)",
         )
 
     existing_user_by_billing = Users.get_user_by_billing_customer_id(
         form_data.billing_customer_id
     )
     if existing_user_by_billing:
-        log.info(f"User with billing_customer_id {form_data.billing_customer_id} already exists (idempotent)")
+        log.info(
+            f"User with billing_customer_id {form_data.billing_customer_id} already exists (idempotent)"
+        )
         return AddByTPAIHmacResponse(
             id=existing_user_by_billing.id,
             email_hmac=existing_user_by_billing.email_hmac,
             billing_customer_id=existing_user_by_billing.billing_customer_id,
             role=existing_user_by_billing.role,
-            message="User already exists (idempotent success)"
+            message="User already exists (idempotent success)",
         )
 
     # Create new user
@@ -834,7 +837,7 @@ async def add_user_by_tpai_hmac(
                 email_hmac=user.email_hmac,
                 billing_customer_id=user.billing_customer_id,
                 role=user.role,
-                message="User created successfully"
+                message="User created successfully",
             )
         else:
             raise HTTPException(500, detail=ERROR_MESSAGES.CREATE_USER_ERROR)

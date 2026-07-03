@@ -144,7 +144,9 @@ class TestEncryptionE2E(AbstractPostgresTest):
         raw_messages = raw_chat.get("messages", [])
         assert len(raw_messages) == 1
         content_at_rest = raw_messages[0]["content"]
-        assert isinstance(content_at_rest, dict), "Content at rest should be an encrypted dict"
+        assert isinstance(
+            content_at_rest, dict
+        ), "Content at rest should be an encrypted dict"
         assert content_at_rest.get("is_encrypted") is True
         assert "ciphertext" in content_at_rest
         assert content_at_rest["ciphertext"] != "Hello encrypted world"
@@ -217,8 +219,14 @@ class TestEncryptionE2E(AbstractPostgresTest):
         # Both read back correctly via ORM
         from open_webui.models.chats import Chats
 
-        assert Chats.get_chat_by_id(enc_chat_id).chat["messages"][0]["content"] == "secret message"
-        assert Chats.get_chat_by_id(plain_chat_id).chat["messages"][0]["content"] == "open message"
+        assert (
+            Chats.get_chat_by_id(enc_chat_id).chat["messages"][0]["content"]
+            == "secret message"
+        )
+        assert (
+            Chats.get_chat_by_id(plain_chat_id).chat["messages"][0]["content"]
+            == "open message"
+        )
 
     def test_cross_user_dek_isolation(self):
         """User B's DEK cannot decrypt user A's ciphertext."""
@@ -244,7 +252,10 @@ class TestEncryptionE2E(AbstractPostgresTest):
         ciphertext = raw_chat["messages"][0]["content"]["ciphertext"]
 
         # Decrypt user B's DEK
-        from open_webui.utils.encryption_utils import decrypt_dek, current_user_dek_context
+        from open_webui.utils.encryption_utils import (
+            decrypt_dek,
+            current_user_dek_context,
+        )
         import base64
 
         dek_b = decrypt_dek(user_b.user_encrypted_dek, user_b.user_key)
@@ -283,7 +294,10 @@ class TestEncryptionE2E(AbstractPostgresTest):
         from open_webui.internal.db import get_db
         from sqlalchemy import text
 
-        corrupted_content = {"ciphertext": "AAAA-corrupted-garbage", "is_encrypted": True}
+        corrupted_content = {
+            "ciphertext": "AAAA-corrupted-garbage",
+            "is_encrypted": True,
+        }
         corrupted_chat = dict(raw_chat)
         corrupted_chat["messages"] = [{"role": "user", "content": corrupted_content}]
 
@@ -340,15 +354,19 @@ class TestEncryptionE2E(AbstractPostgresTest):
         raw_after = self._get_raw_chat_json(chat_id)
         assert raw_after["messages"][0]["content"]["is_encrypted"] is True
         ciphertext_after = raw_after["messages"][0]["content"]["ciphertext"]
-        assert ciphertext_after != ciphertext_before, "Ciphertext should change after update"
+        assert (
+            ciphertext_after != ciphertext_before
+        ), "Ciphertext should change after update"
 
         # ORM read: should return updated plaintext
         loaded = Chats.get_chat_by_id(chat_id)
         assert loaded.chat["messages"][0]["content"] == "updated message"
 
-    @pytest.mark.skip(reason="mock_webui_user creates a bare User without encryption keys; "
-                             "after_load hook cannot decrypt the response. Needs mock user "
-                             "with user_key/user_encrypted_dek to test API decryption path.")
+    @pytest.mark.skip(
+        reason="mock_webui_user creates a bare User without encryption keys; "
+        "after_load hook cannot decrypt the response. Needs mock user "
+        "with user_key/user_encrypted_dek to test API decryption path."
+    )
     def test_api_roundtrip_encrypted_chat(self):
         """Full FastAPI path: POST/GET returns plaintext while DB has ciphertext."""
         uid = str(uuid.uuid4())
@@ -434,7 +452,10 @@ class TestEncryptionE2E(AbstractPostgresTest):
             billing_id=f"billing-{uid_b}",
         )
 
-        from open_webui.utils.encryption_utils import decrypt_dek, current_user_dek_context
+        from open_webui.utils.encryption_utils import (
+            decrypt_dek,
+            current_user_dek_context,
+        )
 
         dek_a = decrypt_dek(user_a.user_encrypted_dek, user_a.user_key)
         dek_b = decrypt_dek(user_b.user_encrypted_dek, user_b.user_key)
@@ -620,11 +641,13 @@ class TestEncryptionE2E(AbstractPostgresTest):
 
         chat = Chats.insert_new_chat(
             user.id,
-            ChatForm(chat={
-                "title": "My Secret Title",
-                "name": "test",
-                "messages": [{"role": "user", "content": "some content"}],
-            }),
+            ChatForm(
+                chat={
+                    "title": "My Secret Title",
+                    "name": "test",
+                    "messages": [{"role": "user", "content": "some content"}],
+                }
+            ),
         )
         assert chat is not None
 

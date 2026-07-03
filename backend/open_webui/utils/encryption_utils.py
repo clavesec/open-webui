@@ -17,6 +17,7 @@ from cryptography.hazmat.backends import default_backend
 LOCAL_HMAC_KEY: bytes = os.environ.get("TPAI_LOCAL_HMAC_KEY", "").encode("utf-8")
 if not LOCAL_HMAC_KEY:
     import logging as _logging
+
     _logging.getLogger(__name__).warning(
         "TPAI_LOCAL_HMAC_KEY not set — user ID generation will fail until configured"
     )
@@ -387,8 +388,12 @@ if __name__ == "__main__":
     print("\nTesting no-DEK passthrough mode...")
     # Context is now clear, so get_key() returns None → passthrough
     passthrough_msg = "Message without encryption."
-    assert encrypt_message(passthrough_msg) == passthrough_msg, "No-DEK encrypt should passthrough"
-    assert decrypt_message(passthrough_msg) == passthrough_msg, "No-DEK decrypt should passthrough"
+    assert (
+        encrypt_message(passthrough_msg) == passthrough_msg
+    ), "No-DEK encrypt should passthrough"
+    assert (
+        decrypt_message(passthrough_msg) == passthrough_msg
+    ), "No-DEK decrypt should passthrough"
     print("No-DEK passthrough mode passed.")
 
     # Unit tests from previous step (for completeness of the __main__ block)

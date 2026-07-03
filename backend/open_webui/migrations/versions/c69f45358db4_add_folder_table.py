@@ -20,7 +20,11 @@ def upgrade():
     conn = op.get_bind()
     inspector = inspect(conn)
     existing_tables = set(inspector.get_table_names())
-    chat_columns = {col["name"] for col in inspector.get_columns("chat")} if "chat" in existing_tables else set()
+    chat_columns = (
+        {col["name"] for col in inspector.get_columns("chat")}
+        if "chat" in existing_tables
+        else set()
+    )
 
     if "folder" not in existing_tables:
         op.create_table(
@@ -33,7 +37,10 @@ def upgrade():
             sa.Column("meta", sa.JSON(), nullable=True),
             sa.Column("is_expanded", sa.Boolean(), default=False, nullable=False),
             sa.Column(
-                "created_at", sa.DateTime(), server_default=sa.func.now(), nullable=False
+                "created_at",
+                sa.DateTime(),
+                server_default=sa.func.now(),
+                nullable=False,
             ),
             sa.Column(
                 "updated_at",

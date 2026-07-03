@@ -30,9 +30,15 @@ class Auth(Base):
     # The 'id' of the Auth record now corresponds to the derived UserID from the User table.
     id = Column(String, primary_key=True)
 
-    email = Column(String, nullable=True)  # NOW NULLABLE (unused for billing-enrolled users)
-    email_hmac = Column(String(255), nullable=True)  # HMAC of email (for billing enrollment)
-    password = Column(Text, nullable=True)  # NOW NULLABLE (billing-enrolled users have NULL password)
+    email = Column(
+        String, nullable=True
+    )  # NOW NULLABLE (unused for billing-enrolled users)
+    email_hmac = Column(
+        String(255), nullable=True
+    )  # HMAC of email (for billing enrollment)
+    password = Column(
+        Text, nullable=True
+    )  # NOW NULLABLE (billing-enrolled users have NULL password)
     active = Column(Boolean)
 
 
@@ -40,7 +46,9 @@ class AuthModel(BaseModel):
     id: str  # Corresponds to UserID
     email: Optional[str] = None  # NOW OPTIONAL (for billing-enrolled users)
     email_hmac: Optional[str] = None  # HMAC of email (for billing enrollment)
-    password: Optional[str] = None  # NOW OPTIONAL (billing-enrolled users have NULL password)
+    password: Optional[str] = (
+        None  # NOW OPTIONAL (billing-enrolled users have NULL password)
+    )
     active: bool = True
 
 
@@ -107,6 +115,7 @@ class AddUserForm(SignupForm):
 
 class AddByTPAIHmacForm(BaseModel):
     """Form for billing enrollment endpoint (called by consumer Lambda)"""
+
     user_id: str  # email_hmac (also user.id)
     email_hmac: str  # must match user_id
     password: None  # must be None
@@ -117,6 +126,7 @@ class AddByTPAIHmacForm(BaseModel):
 
 class AddByTPAIHmacResponse(BaseModel):
     """Response for billing enrollment endpoint"""
+
     id: str
     email_hmac: str
     billing_customer_id: str
@@ -253,13 +263,19 @@ class AuthsTable:
             # Check if user already exists by email_hmac
             existing_user_by_hmac = Users.get_user_by_email_hmac(email_hmac)
             if existing_user_by_hmac:
-                log.info(f"User with email_hmac {email_hmac} already exists (idempotent)")
+                log.info(
+                    f"User with email_hmac {email_hmac} already exists (idempotent)"
+                )
                 return existing_user_by_hmac
 
             # Check if user already exists by billing_customer_id
-            existing_user_by_billing = Users.get_user_by_billing_customer_id(billing_customer_id)
+            existing_user_by_billing = Users.get_user_by_billing_customer_id(
+                billing_customer_id
+            )
             if existing_user_by_billing:
-                log.info(f"User with billing_customer_id {billing_customer_id} already exists (idempotent)")
+                log.info(
+                    f"User with billing_customer_id {billing_customer_id} already exists (idempotent)"
+                )
                 return existing_user_by_billing
 
             # Create Auth record with NULL password
@@ -279,7 +295,9 @@ class AuthsTable:
             salt_val = encryption_utils.generate_salt()
             user_key_val = encryption_utils.derive_key_from_user_id(user_id, salt_val)
             dek_plaintext = encryption_utils.generate_dek()
-            user_encrypted_dek_val = encryption_utils.encrypt_dek(dek_plaintext, user_key_val)
+            user_encrypted_dek_val = encryption_utils.encrypt_dek(
+                dek_plaintext, user_key_val
+            )
 
             # Create User record
             user = Users.insert_new_user(
@@ -303,7 +321,9 @@ class AuthsTable:
                 db.commit()
                 return user
             else:
-                log.error(f"Billing-enrolled user creation failed for {user_id}. Rolling back.")
+                log.error(
+                    f"Billing-enrolled user creation failed for {user_id}. Rolling back."
+                )
                 db.rollback()
                 return None
 

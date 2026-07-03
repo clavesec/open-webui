@@ -68,7 +68,9 @@ def _set_dek_for_chat_operation(user_id: str, db_session: Session):
             f"Successfully set plaintext DEK in context for user {user_id} for chat operation."
         )
     except Exception as e:
-        log.warning(f"Failed to decrypt DEK for user {user_id}: {e}. Content stored as plaintext.")
+        log.warning(
+            f"Failed to decrypt DEK for user {user_id}: {e}. Content stored as plaintext."
+        )
         encryption_utils.current_user_dek_context.set(None)
 
 
@@ -112,9 +114,7 @@ def _traverse_and_encrypt(chat_obj: Chat):
 
     # This handles the nested history structure.
     history = chat_obj.chat.get("history", {})
-    history_messages = (
-        history.get("messages", {}) if isinstance(history, dict) else {}
-    )
+    history_messages = history.get("messages", {}) if isinstance(history, dict) else {}
 
     if isinstance(history_messages, dict):
         for msg_id, message in history_messages.items():
@@ -160,7 +160,9 @@ def _traverse_and_decrypt(chat_obj: Chat):
                     # equal the original plaintext content.
                     if plaintext == ciphertext and ciphertext:
                         # decrypt_message returned original data (silent failure)
-                        log.error("DECRYPTION FAILED for chat message: returned original ciphertext")
+                        log.error(
+                            "DECRYPTION FAILED for chat message: returned original ciphertext"
+                        )
                         # Preserve the encrypted dict as-is
                     else:
                         message["content"] = plaintext
@@ -187,7 +189,9 @@ def _traverse_and_decrypt(chat_obj: Chat):
                     plaintext = encryption_utils.decrypt_message(ciphertext)
                     # See comment above: Fernet ciphertext never equals plaintext
                     if plaintext == ciphertext and ciphertext:
-                        log.error(f"DECRYPTION FAILED for history message {msg_id}: returned original ciphertext")
+                        log.error(
+                            f"DECRYPTION FAILED for history message {msg_id}: returned original ciphertext"
+                        )
                         # Preserve the encrypted dict as-is
                     else:
                         message["content"] = plaintext

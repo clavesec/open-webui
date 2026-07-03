@@ -31,7 +31,10 @@ def upgrade():
             sa.Column("data", sa.JSON(), nullable=False),
             sa.Column("version", sa.Integer, nullable=False),
             sa.Column(
-                "created_at", sa.DateTime(), nullable=False, server_default=sa.func.now()
+                "created_at",
+                sa.DateTime(),
+                nullable=False,
+                server_default=sa.func.now(),
             ),
             sa.Column(
                 "updated_at",

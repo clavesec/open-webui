@@ -27,8 +27,12 @@ class User(Base):
     # WRONG - I will ultimately no use this for SaaS; may be used for Enterprise
     # NOW NULLABLE to support billing-enrolled users (who have email_hmac instead)
     email = Column(String, unique=True, index=True, nullable=True)
-    email_hmac = Column(String(255), nullable=True, index=True)  # HMAC of email (for billing enrollment)
-    billing_customer_id = Column(String(255), nullable=True, unique=True, index=True)  # Stripe customer ID
+    email_hmac = Column(
+        String(255), nullable=True, index=True
+    )  # HMAC of email (for billing enrollment)
+    billing_customer_id = Column(
+        String(255), nullable=True, unique=True, index=True
+    )  # Stripe customer ID
     role = Column(String)
     profile_image_url = Column(Text)
 
@@ -249,11 +253,17 @@ class UsersTable:
         except Exception:
             return None
 
-    def get_user_by_billing_customer_id(self, billing_customer_id: str) -> Optional[UserModel]:
+    def get_user_by_billing_customer_id(
+        self, billing_customer_id: str
+    ) -> Optional[UserModel]:
         """Retrieve user by Stripe billing customer ID"""
         try:
             with get_db() as db:
-                user = db.query(User).filter_by(billing_customer_id=billing_customer_id).first()
+                user = (
+                    db.query(User)
+                    .filter_by(billing_customer_id=billing_customer_id)
+                    .first()
+                )
                 return UserModel.model_validate(user) if user else None
         except Exception:
             return None
