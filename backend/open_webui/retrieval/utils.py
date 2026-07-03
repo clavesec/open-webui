@@ -680,7 +680,7 @@ def generate_openai_batch_embeddings(
                     {
                         "X-OpenWebUI-User-Name": user.name,
                         "X-OpenWebUI-User-Id": user.id,
-                        "X-OpenWebUI-User-Email": user.email,
+                        "X-OpenWebUI-User-Email": user.email or "",
                         "X-OpenWebUI-User-Role": user.role,
                     }
                     if ENABLE_FORWARD_USER_INFO_HEADERS and user
@@ -729,7 +729,7 @@ def generate_azure_openai_batch_embeddings(
                         {
                             "X-OpenWebUI-User-Name": user.name,
                             "X-OpenWebUI-User-Id": user.id,
-                            "X-OpenWebUI-User-Email": user.email,
+                            "X-OpenWebUI-User-Email": user.email or "",
                             "X-OpenWebUI-User-Role": user.role,
                         }
                         if ENABLE_FORWARD_USER_INFO_HEADERS and user
@@ -779,7 +779,7 @@ def generate_ollama_batch_embeddings(
                     {
                         "X-OpenWebUI-User-Name": user.name,
                         "X-OpenWebUI-User-Id": user.id,
-                        "X-OpenWebUI-User-Email": user.email,
+                        "X-OpenWebUI-User-Email": user.email or "",
                         "X-OpenWebUI-User-Role": user.role,
                     }
                     if ENABLE_FORWARD_USER_INFO_HEADERS
