@@ -791,7 +791,10 @@ async def add_user_by_tpai_hmac(
     if form_data.role not in ["user", "pending"]:
         raise HTTPException(400, detail="invalid role")
 
-    # Check idempotency (user exists?)
+    # Check idempotency (user exists?) — deliberately BEFORE the format
+    # check below, so an SQS replay for an already-enrolled user always gets
+    # its idempotent 200 (never a retry-poisoning 400), even if that row
+    # predates the format rule.
     existing_user_by_hmac = Users.get_user_by_email_hmac(form_data.email_hmac)
     if existing_user_by_hmac:
         log.info(
@@ -804,6 +807,16 @@ async def add_user_by_tpai_hmac(
             role=existing_user_by_hmac.role,
             message="User already exists (idempotent success)",
         )
+
+    # The user_id is forwarded as X-OpenWebUI-User-Id and is the gateway's
+    # identity-HMAC input and mint-subject key (exact match against the
+    # session table). Reject anything but canonical lowercase hex for NEW
+    # enrollments so whitespace/case anomalies can never be enrolled and
+    # later stranded by the gateway's header normalization. (A 400 here is
+    # permanent for the message and lands in the enrollment DLQ after
+    # maxReceiveCount — that visibility is intentional.)
+    if not re.fullmatch(r"[0-9a-f]{64}", form_data.user_id):
+        raise HTTPException(400, detail="user_id must be 64 lowercase hex chars")
 
     existing_user_by_billing = Users.get_user_by_billing_customer_id(
         form_data.billing_customer_id

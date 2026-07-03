@@ -485,7 +485,7 @@ async def image_generations(
             if ENABLE_FORWARD_USER_INFO_HEADERS:
                 headers["X-OpenWebUI-User-Name"] = user.name
                 headers["X-OpenWebUI-User-Id"] = user.id
-                headers["X-OpenWebUI-User-Email"] = user.email
+                headers["X-OpenWebUI-User-Email"] = user.email or ""
                 headers["X-OpenWebUI-User-Role"] = user.role
 
             data = {
