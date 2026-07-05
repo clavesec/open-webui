@@ -73,6 +73,7 @@ log.info("🚀 MAIN: ✅ Successfully imported from socket.main")
 from open_webui.routers import (
     audio,
     images,
+    connectors,
     ollama,
     openai,
     retrieval,
@@ -141,6 +142,8 @@ from open_webui.config import (
     OPENAI_API_CONFIGS,
     # Direct Connections
     ENABLE_DIRECT_CONNECTIONS,
+    # TPAI Connectors (Settings -> Connectors)
+    ENABLE_CONNECTORS,
     # Thread pool size for FastAPI/AnyIO
     THREAD_POOL_SIZE,
     # Tool Server Configs
@@ -689,6 +692,8 @@ app.state.TOOL_SERVERS = []
 ########################################
 
 app.state.config.ENABLE_DIRECT_CONNECTIONS = ENABLE_DIRECT_CONNECTIONS
+# TPAI Connectors (Settings -> Connectors, external-content m3)
+app.state.config.ENABLE_CONNECTORS = ENABLE_CONNECTORS
 
 ########################################
 #
@@ -1217,6 +1222,9 @@ app.include_router(retrieval.router, prefix="/api/v1/retrieval", tags=["retrieva
 
 app.include_router(configs.router, prefix="/api/v1/configs", tags=["configs"])
 
+# TPAI Connectors (Settings -> Connectors, external-content m3)
+app.include_router(connectors.router, prefix="/api/v1/connectors", tags=["connectors"])
+
 app.include_router(auths.router, prefix="/api/v1/auths", tags=["auths"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 
@@ -1599,6 +1607,7 @@ async def get_app_config(request: Request):
             **(
                 {
                     "enable_direct_connections": app.state.config.ENABLE_DIRECT_CONNECTIONS,
+                    "enable_connectors": app.state.config.ENABLE_CONNECTORS,
                     "enable_channels": app.state.config.ENABLE_CHANNELS,
                     "enable_notes": app.state.config.ENABLE_NOTES,
                     "enable_web_search": app.state.config.ENABLE_WEB_SEARCH,
