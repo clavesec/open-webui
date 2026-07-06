@@ -9,6 +9,7 @@
 	import { onMount, getContext } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
+	import { base } from '$app/paths';
 
 	import { confirmGmail } from '$lib/apis/connectors';
 	import Spinner from '$lib/components/common/Spinner.svelte';
@@ -20,8 +21,9 @@
 
 	onMount(async () => {
 		const nonce = $page.url.searchParams.get('gmail_confirm') ?? '';
-		// Strip the nonce from the address bar/history immediately.
-		window.history.replaceState({}, '', '/connectors/gmail/callback');
+		// Strip the nonce from the address bar/history immediately (base-aware
+		// so a subpath deploy rewrites to a route that actually exists).
+		window.history.replaceState({}, '', `${base}/connectors/gmail/callback`);
 		if (!nonce) {
 			state = 'invalid';
 			return;

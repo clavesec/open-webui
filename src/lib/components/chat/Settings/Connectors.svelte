@@ -135,10 +135,19 @@
 							</div>
 						</div>
 					{:else if status.status === 'pending-confirm'}
-						<div class="text-xs text-gray-500">
-							{$i18n.t(
-								'A connection is waiting to be finished. Complete the Google consent flow, or reconnect to start over.'
-							)}
+						<div class="flex items-center justify-between">
+							<div class="text-xs text-gray-500">
+								{$i18n.t(
+									'A connection is waiting to be finished. Complete the Google consent flow, or start over.'
+								)}
+							</div>
+							<button
+								class="px-3.5 py-1.5 text-sm font-medium bg-black hover:bg-gray-900 text-white dark:bg-white dark:text-black dark:hover:bg-gray-100 transition rounded-full disabled:opacity-50"
+								disabled={busy}
+								on:click={connectHandler}
+							>
+								{$i18n.t('Start over')}
+							</button>
 						</div>
 					{:else}
 						<div class="flex items-center justify-between">

@@ -105,9 +105,21 @@ async def _proxy(
                         status_code=502, detail="Connector gateway error"
                     )
                 if response.status >= 400:
-                    # Relay the gateway/connector deny verbatim (fixed
-                    # vocabulary: reason/detail slugs, no free text).
-                    raise HTTPException(status_code=response.status, detail=body)
+                    # Relay the deny as a FLAT string slug. Connector denies
+                    # carry {"reason": slug}; gateway-originated denies carry
+                    # {"detail": slug}. Passing the whole dict as `detail`
+                    # double-wraps to {"detail": {...}}, which the frontend
+                    # renders as "[object Object]" and whose slug the callback
+                    # page's error['reason'] check misses. Extract the slug so
+                    # the client always sees a string (its state checks —
+                    # confirm-mismatch / confirm-invalid — still match).
+                    slug = None
+                    if isinstance(body, dict):
+                        slug = body.get("reason") or body.get("detail")
+                    raise HTTPException(
+                        status_code=response.status,
+                        detail=slug if isinstance(slug, str) else "connector-error",
+                    )
                 return body
     except HTTPException:
         raise
