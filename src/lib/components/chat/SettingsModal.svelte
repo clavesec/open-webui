@@ -18,6 +18,7 @@
 	import Search from '../icons/Search.svelte';
 	import XMark from '../icons/XMark.svelte';
 	import Connections from './Settings/Connections.svelte';
+	import Connectors from './Settings/Connectors.svelte';
 	import Tools from './Settings/Tools.svelte';
 
 	const i18n = getContext('i18n');
@@ -204,6 +205,24 @@
 							'manage connections',
 							'manage direct connections',
 							'managedirectconnections',
+							'settings'
+						]
+					}
+				]
+			: []),
+
+		...($config?.features?.enable_connectors
+			? [
+					{
+						id: 'connectors',
+						title: 'Connectors',
+						keywords: [
+							'connectors',
+							'connector',
+							'gmail',
+							'connect gmail',
+							'connectgmail',
+							'email',
 							'settings'
 						]
 					}
@@ -687,6 +706,45 @@
 									<div class=" self-center">{$i18n.t('Connections')}</div>
 								</button>
 							{/if}
+						{:else if tabId === 'connectors'}
+							{#if $config?.features?.enable_connectors}
+								<button
+									role="tab"
+									aria-controls="tab-connectors"
+									aria-selected={selectedTab === 'connectors'}
+									class={`px-0.5 py-1 min-w-fit rounded-lg flex-1 md:flex-none flex text-left transition
+								${
+									selectedTab === 'connectors'
+										? ($settings?.highContrastMode ?? false)
+											? 'dark:bg-gray-800 bg-gray-200'
+											: ''
+										: ($settings?.highContrastMode ?? false)
+											? 'hover:bg-gray-200 dark:hover:bg-gray-800'
+											: 'text-gray-300 dark:text-gray-600 hover:text-gray-700 dark:hover:text-white'
+								}`}
+									on:click={() => {
+										selectedTab = 'connectors';
+									}}
+								>
+									<div class=" self-center mr-2">
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											aria-hidden="true"
+											viewBox="0 0 16 16"
+											fill="currentColor"
+											class="w-4 h-4"
+										>
+											<path
+												d="M2 3.5A1.5 1.5 0 0 1 3.5 2h9A1.5 1.5 0 0 1 14 3.5v.797L8 8.03 2 4.297V3.5Z"
+											/>
+											<path
+												d="M2 5.963V12.5A1.5 1.5 0 0 0 3.5 14h9a1.5 1.5 0 0 0 1.5-1.5V5.963L8.393 9.602a.75.75 0 0 1-.786 0L2 5.963Z"
+											/>
+										</svg>
+									</div>
+									<div class=" self-center">{$i18n.t('Connectors')}</div>
+								</button>
+							{/if}
 						{:else if tabId === 'tools'}
 							{#if $user?.role === 'admin' || ($user?.role === 'user' && $user?.permissions?.features?.direct_tool_servers && $config?.features?.direct_tool_servers)}
 								<button
@@ -955,6 +1013,8 @@
 							toast.success($i18n.t('Settings saved successfully!'));
 						}}
 					/>
+				{:else if selectedTab === 'connectors'}
+					<Connectors />
 				{:else if selectedTab === 'tools'}
 					<Tools
 						saveSettings={async (updated) => {

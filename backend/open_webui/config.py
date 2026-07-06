@@ -779,6 +779,19 @@ ENABLE_DIRECT_CONNECTIONS = PersistentConfig(
 )
 
 ####################################
+# TPAI CONNECTORS (Settings -> Connectors, external-content m3)
+####################################
+
+# Gates the user-facing Connectors page and its backend proxy to the TPAI
+# gateway's /connectors surface. Default OFF: the page and routes do not
+# exist until the deployment enables the gmail tool family end-to-end.
+ENABLE_CONNECTORS = PersistentConfig(
+    "ENABLE_CONNECTORS",
+    "connectors.enable",
+    os.environ.get("ENABLE_CONNECTORS", "False").lower() == "true",
+)
+
+####################################
 # OLLAMA_BASE_URL
 ####################################
 
